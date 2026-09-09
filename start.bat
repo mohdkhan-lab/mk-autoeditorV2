@@ -25,7 +25,7 @@ if not exist "out\index.html" (
 
 echo.
 echo ============================================================
-echo   Story-to-Video is starting at http://localhost:4000
+echo   MK AutoEditor is starting at http://localhost:4000
 echo   Your browser will open automatically.
 echo.
 echo   To STOP the app: close this window, or press Ctrl+C.
