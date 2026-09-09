@@ -1,13 +1,53 @@
-<svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <title>TryAIToday AutoEditor</title>
-  <rect x="3" y="3" width="42" height="42" rx="12" fill="url(#aeGrad)"/>
-  <rect x="3.6" y="3.6" width="40.8" height="40.8" rx="11.4" fill="none" stroke="#ffffff" stroke-opacity="0.35"/>
-  <path d="M20 15.5 L20 32.5 L33.5 24 Z" fill="#101012" stroke="#101012" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>MK AutoEditor</title>
   <defs>
-    <linearGradient id="aeGrad" x1="24" y1="3" x2="24" y2="45" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ffffff"/>
-      <stop offset="0.55" stop-color="#e7e8ec"/>
-      <stop offset="1" stop-color="#c9ccd2"/>
+    <linearGradient id="mkBg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1c1d24"/>
+      <stop offset="50%" stop-color="#121318"/>
+      <stop offset="100%" stop-color="#090a0d"/>
     </linearGradient>
+    <linearGradient id="mkGold" x1="8" y1="12" x2="40" y2="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffe484"/>
+      <stop offset="45%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="mkSilver" x1="12" y1="12" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="60%" stop-color="#e2e4e9"/>
+      <stop offset="100%" stop-color="#9ca3af"/>
+    </linearGradient>
+    <linearGradient id="mkBorder" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.6"/>
+      <stop offset="40%" stop-color="#fbbf24" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.1"/>
+    </linearGradient>
+    <filter id="mkGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
   </defs>
+
+  <!-- Container badge with luxury dark gradient & golden rim -->
+  <rect x="2.5" y="2.5" width="43" height="43" rx="11" fill="url(#mkBg)"/>
+  <rect x="2.5" y="2.5" width="43" height="43" rx="11" stroke="url(#mkBorder)" stroke-width="1.2"/>
+
+  <!-- Subtle ambient glow in center -->
+  <circle cx="24" cy="24" r="14" fill="#f59e0b" fill-opacity="0.08"/>
+
+  <!-- 'M' Glyphs (Clean, modern tech geometry) -->
+  <!-- Left stem of M -->
+  <rect x="9.5" y="14" width="3.5" height="20" rx="1.75" fill="url(#mkSilver)"/>
+  <!-- Middle diagonal fold of M -->
+  <path d="M12.5 15.5 L18 24.5 L23.5 15.5" stroke="url(#mkSilver)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Shared central stem -->
+  <rect x="22" y="14" width="3.5" height="20" rx="1.75" fill="url(#mkSilver)"/>
+
+  <!-- 'K' Branch Arms with golden accent & play dynamic -->
+  <!-- Upper arm of K -->
+  <path d="M24 23.5 L34.5 14.5" stroke="url(#mkGold)" stroke-width="3.6" stroke-linecap="round"/>
+  <!-- Lower arm of K -->
+  <path d="M25 24.5 L35 33.5" stroke="url(#mkGold)" stroke-width="3.6" stroke-linecap="round"/>
+
+  <!-- Video Editor Play Arrow inside the K apex -->
+  <path d="M30 21 L35.5 24 L30 27 Z" fill="url(#mkGold)" filter="url(#mkGlow)"/>
 </svg>

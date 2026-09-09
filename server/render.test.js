@@ -174,4 +174,17 @@ describe("segmented render (large graph timelines)", () => {
     expect(p.mode).toBe("graph");
     expect(p.passes).toBeUndefined();
   });
+
+  it("blends particleAsset loop when particles effect is active", () => {
+    const p = buildRenderPlan(
+      { ...base, clips, effects: ["none", "particles", "none"], effectIntensities: [100, 80, 100] },
+      { ...io, particleAsset: "particles.mp4" }
+    );
+    expect(p.mode).toBe("graph");
+    expect(p.args).toContain("-stream_loop");
+    expect(p.args).toContain("particles.mp4");
+    const fc = filterText(p);
+    expect(fc).toContain("blend=all_mode=screen");
+    expect(fc).toContain("between(t,3.000,6.000)");
+  });
 });

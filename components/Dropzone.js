@@ -21,6 +21,28 @@ function readEntry(entry, out) {
   });
 }
 
+function isAcceptedFile(file, accept) {
+  if (!accept) return true;
+  const types = accept.split(",").map((s) => s.trim().toLowerCase());
+  const ftype = (file.type || "").toLowerCase();
+  const fname = (file.name || "").toLowerCase();
+  for (const t of types) {
+    if (t === "*/*" || t === "*") return true;
+    if (t.endsWith("/*")) {
+      const group = t.slice(0, -2);
+      if (ftype.startsWith(`${group}/`)) return true;
+      if (group === "image" && /\.(png|jpe?g|webp|gif|bmp|avif)$/i.test(fname)) return true;
+      if (group === "video" && /\.(mp4|mov|webm|mkv|avi|m4v|3gp|wmv)$/i.test(fname)) return true;
+      if (group === "audio" && /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(fname)) return true;
+    } else if (t.startsWith(".")) {
+      if (fname.endsWith(t)) return true;
+    } else if (ftype === t) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // A click-or-drop file input. Dropping folders (even several at once) pulls in
 // every file inside; `filled` swaps the label to the loaded state.
 export default function Dropzone({
@@ -44,7 +66,7 @@ export default function Dropzone({
     const dt = e.dataTransfer;
     if (!dt) return;
 
-    // Folder-aware path (only for multi-file zones like images). webkitGetAsEntry
+    // Folder-aware path (only for multi-file zones like images/videos). webkitGetAsEntry
     // must be called synchronously during the drop, so grab the entries first.
     if (multiple && dt.items && dt.items.length) {
       const entries = Array.from(dt.items)
@@ -53,14 +75,16 @@ export default function Dropzone({
       if (entries.length) {
         const out = [];
         await Promise.all(entries.map((en) => readEntry(en, out)));
-        const prefix = accept && accept.endsWith("/*") ? accept.split("/")[0] : null;
-        const files = prefix ? out.filter((f) => f.type.startsWith(`${prefix}/`)) : out;
+        const files = accept ? out.filter((f) => isAcceptedFile(f, accept)) : out;
         if (files.length) onFiles(files);
         return;
       }
     }
 
-    if (dt.files && dt.files.length) onFiles(dt.files);
+    if (dt.files && dt.files.length) {
+      const files = accept ? Array.from(dt.files).filter((f) => isAcceptedFile(f, accept)) : Array.from(dt.files);
+      if (files.length) onFiles(files);
+    }
   }, [onFiles, multiple, accept]);
 
   const cls = ["dz"];

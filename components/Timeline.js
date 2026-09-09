@@ -34,7 +34,8 @@ export default function Timeline({
   clips, imageEls, duration, time, peaks, activeName, badClips,
   transitionsByName, motionByName, selectedName, onSelect,
   onSeek, onScrubStart, onScrubEnd, onOpen, onAdd, onResizeBoundary,
-  trimEnd, onTrimChange,
+  trimEnd, onTrimChange, videoInfoByName = {}, fitByName = {},
+  effectsByName = {},
 }) {
   const trackRef = useRef(null);
   const downRef = useRef(null); // pointer-down position, to tell a clip tap from a drag
@@ -251,12 +252,29 @@ export default function Timeline({
                   onClick={(e) => onClipClick(c.name, e)}
                 >
                   <span className="clip__meta">{cDur.toFixed(1)}s</span>
-                  {el && el.isVideo && (
-                    <span className="clip__video" title="Video clip">▶</span>
-                  )}
+                  {el && el.isVideo && (() => {
+                    const vi = videoInfoByName && videoInfoByName[c.name];
+                    const vdur = (vi && vi.duration) || el.videoDuration || 0;
+                    const mode = (fitByName && fitByName[c.name]) || "fit";
+                    const spd = (mode === "fit" && cDur > 0 && vdur > 0) ? +(vdur / cDur).toFixed(1) : 1;
+                    const badgeText = spd > 1.05 ? `⚡ ${spd}x` : spd < 0.95 ? `🐢 ${spd}x` : "1.0x";
+                    return (
+                      <span className="clip__video-badge" title={`Video · ${vdur.toFixed(1)}s clip · ${spd}x speed`}>
+                        ▶ {badgeText}
+                      </span>
+                    );
+                  })()}
                   {motionByName && motionByName[c.name] && motionByName[c.name] !== "none" && (
                     <span className="clip__motion" title={motionByName[c.name] === "zoomout" ? "Zoom out" : "Zoom in"}>
                       {motionByName[c.name] === "zoomout" ? "⤡" : "⤢"}
+                    </span>
+                  )}
+                  {effectsByName && effectsByName[c.name] && effectsByName[c.name] !== "none" && (
+                    <span
+                      className={`clip__effect-badge ${motionByName && motionByName[c.name] && motionByName[c.name] !== "none" ? "has-motion" : ""}`}
+                      title={`Effect: ${effectsByName[c.name]}`}
+                    >
+                      ✨ {effectsByName[c.name]}
                     </span>
                   )}
                   {fname && <span className="clip__name">{fname}</span>}

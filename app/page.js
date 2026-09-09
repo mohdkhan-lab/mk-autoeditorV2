@@ -13,12 +13,28 @@ import { parseTranscript } from "../lib/captions";
 import Dropzone from "../components/Dropzone";
 import Editor from "../components/Editor";
 import ProjectsHome from "../components/ProjectsHome";
-import StorageRing from "../components/StorageRing";
+import ErrorBoundary from "../components/ErrorBoundary";
 import { DialogHost, showAlert, showPrompt } from "../components/Dialog";
 import {
   requestPersist, storageEstimate, listProjects, getProject, saveProject,
   renameProject, deleteProject, getMedia, syncMedia, newId,
 } from "../lib/projectStore";
+
+function isVideoFile(f) {
+  if (!f) return false;
+  if (f.type && f.type.startsWith("video/")) return true;
+  return /\.(mp4|mov|webm|mkv|avi|m4v|3gp|wmv)$/i.test(f.name || "");
+}
+
+function isImageFile(f) {
+  if (!f) return false;
+  if (f.type && f.type.startsWith("image/")) return true;
+  return /\.(png|jpe?g|webp|gif|bmp|avif)$/i.test(f.name || "");
+}
+
+function isMediaFile(f) {
+  return isVideoFile(f) || isImageFile(f);
+}
 
 function loadImageEl(file) {
   return new Promise((resolve) => {
@@ -128,6 +144,8 @@ export default function Home() {
   const [fadeOut, setFadeOut] = useState(0.6);        // ending fade seconds (0 = off)
   const [motionByName, setMotionByName] = useState({}); // clip name -> zoomin | zoomout
   const [motionAmount, setMotionAmount] = useState(0.08); // Ken Burns zoom depth (0–0.2)
+  const [effectsByName, setEffectsByName] = useState({}); // clip name -> effect id
+  const [effectIntensityByName, setEffectIntensityByName] = useState({}); // clip name -> intensity (10–100)
   const [trimByName, setTrimByName] = useState({});   // video clip name -> in-point seconds
   const [volumeByName, setVolumeByName] = useState({}); // video clip name -> 0..1 (default 0.5)
   const [fitByName, setFitByName] = useState({});     // video clip name -> "fit" (fast-fwd, default) | "trim" (1x)
@@ -158,6 +176,41 @@ export default function Home() {
   const idRef = useRef(0);
   const nextId = () => `s${idRef.current++}`;
 
+  // Global error listener to trap client-side exceptions and log them
+  useEffect(() => {
+    const handleErr = (e) => {
+      fetch("/api/log-error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "window.error",
+          message: e.message,
+          filename: e.filename,
+          lineno: e.lineno,
+          colno: e.colno,
+          stack: e.error ? e.error.stack : null,
+        }),
+      }).catch(() => {});
+    };
+    const handleRej = (e) => {
+      fetch("/api/log-error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "unhandledrejection",
+          reason: String(e.reason),
+          stack: e.reason && e.reason.stack ? e.reason.stack : null,
+        }),
+      }).catch(() => {});
+    };
+    window.addEventListener("error", handleErr);
+    window.addEventListener("unhandledrejection", handleRej);
+    return () => {
+      window.removeEventListener("error", handleErr);
+      window.removeEventListener("unhandledrejection", handleRej);
+    };
+  }, []);
+
   // Composition (undoable): slots + per-clip transition choices, snapshotted together.
   const [doc, commitDoc, { undo, redo, canUndo, canRedo, reset: resetDoc }] =
     useHistory({ slots: [], transitionsByName: {} });
@@ -176,10 +229,10 @@ export default function Home() {
     } catch (e) { setError(e.message); }
   }, []);
 
-  // Import images, merged by timestamp: a file whose timestamp matches an
+  // Import images & videos, merged by timestamp: a file whose timestamp matches an
   // existing slot fills/replaces it; otherwise it becomes a new slot.
   const addImages = useCallback(async (fileList) => {
-    const files = Array.from(fileList).filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
+    const files = Array.from(fileList).filter(isMediaFile);
     if (!files.length) return;
     // Decoding many files (esp. video posters) takes a few seconds with no UI —
     // show live "loaded X of N" progress, ticking up as each file finishes.
@@ -187,7 +240,8 @@ export default function Home() {
     try {
       const loaded = await Promise.all(
         files.map(async (f) => {
-          const img = f.type.startsWith("video/") ? await loadVideoEl(f) : await loadImageEl(f);
+          const isVid = isVideoFile(f);
+          const img = isVid ? await loadVideoEl(f) : await loadImageEl(f);
           setImporting((p) => (p ? { ...p, done: p.done + 1 } : p));
           return { file: f, seconds: parseTimestampName(f.name), img };
         })
@@ -211,9 +265,8 @@ export default function Home() {
 
   // Swap the image/video in one slot, keeping its timestamp.
   const replaceImage = useCallback(async (id, file) => {
-    if (!file) return;
-    const isVid = file.type.startsWith("video/");
-    if (!isVid && !file.type.startsWith("image/")) return;
+    if (!file || !isMediaFile(file)) return;
+    const isVid = isVideoFile(file);
     const img = isVid ? await loadVideoEl(file) : await loadImageEl(file);
     commitDoc((d) => ({
       ...d,
@@ -236,9 +289,8 @@ export default function Home() {
 
   // Fill a gap. LEAD_IN adds a new slot at 0; otherwise fill the empty slot.
   const fillGap = useCallback(async (name, file) => {
-    if (!file) return;
-    const isVid = file.type.startsWith("video/");
-    if (!isVid && !file.type.startsWith("image/")) return;
+    if (!file || !isMediaFile(file)) return;
+    const isVid = isVideoFile(file);
     const img = isVid ? await loadVideoEl(file) : await loadImageEl(file);
     commitDoc((d) => {
       if (name === LEAD_IN) {
@@ -329,6 +381,26 @@ export default function Home() {
       return next;
     });
   }, []);
+  const setEffect = useCallback((name, effectId) => {
+    setEffectsByName((prev) => ({ ...prev, [name]: effectId }));
+  }, []);
+  const setEffectIntensity = useCallback((name, intensity) => {
+    setEffectIntensityByName((prev) => ({ ...prev, [name]: Math.max(10, Math.min(100, +intensity || 70)) }));
+  }, []);
+  const applyEffectAll = useCallback((effectId, intensity) => {
+    setEffectsByName(() => {
+      const next = {};
+      for (const s of slots) if (!s.empty) next[s.id] = effectId;
+      return next;
+    });
+    if (intensity != null) {
+      setEffectIntensityByName(() => {
+        const next = {};
+        for (const s of slots) if (!s.empty) next[s.id] = intensity;
+        return next;
+      });
+    }
+  }, [slots]);
   // Random mix: assign each cut a transition drawn randomly from `picks`
   // (no back-to-back repeats). One commit = one undo step.
   const applyTransitionMix = useCallback((picks, clipNames) => {
@@ -458,6 +530,7 @@ export default function Home() {
     setAspect("16:9"); setFps(coarse ? 24 : 30); setRenderQuality(coarse ? "720p" : "full");
     setTransitionDuration(DEFAULT_TRANSITION_DURATION); setFadeIn(0.5); setFadeOut(0.6);
     setMotionByName({}); setMotionAmount(0.08); setTrimByName({}); setVolumeByName({}); setFitByName({});
+    setEffectsByName({}); setEffectIntensityByName({});
     setTrimEnd(0);
     setCaptionRaw(null); setCaptionName(null); setCaptionsOn(false); setCaptionStyle("classic");
     setCaptionSize("md"); setCaptionLineHeight(null); setCaptionFontScale(null);
@@ -492,7 +565,7 @@ export default function Home() {
   const buildProjectData = useCallback(() => ({
     v: 1,
     settings: { aspect, fps, renderQuality, transitionDuration, fadeIn, fadeOut, motionAmount, trimEnd },
-    maps: { motionByName, trimByName, volumeByName, fitByName },
+    maps: { motionByName, trimByName, volumeByName, fitByName, effectsByName, effectIntensityByName },
     captions: { captionRaw, captionName, captionsOn, captionStyle, captionSize, captionLineHeight, captionFontScale },
     transitionsByName,
     slots: slots.map((s) => ({
@@ -504,7 +577,7 @@ export default function Home() {
     idCounter: idRef.current,
     built,
   }), [aspect, fps, renderQuality, transitionDuration, fadeIn, fadeOut, motionAmount, trimEnd,
-      motionByName, trimByName, volumeByName, fitByName,
+      motionByName, trimByName, volumeByName, fitByName, effectsByName, effectIntensityByName,
       captionRaw, captionName, captionsOn, captionStyle, captionSize, captionLineHeight, captionFontScale,
       transitionsByName, slots, audioFile, built]);
 
@@ -533,7 +606,7 @@ export default function Home() {
     const t = setTimeout(() => { if (saveRef.current) saveRef.current(); }, 1200);
     return () => clearTimeout(t);
   }, [view, currentProject, loadingProject, slots, transitionsByName, aspect, fps, renderQuality, transitionDuration,
-      fadeIn, fadeOut, motionByName, motionAmount, trimByName, volumeByName, fitByName, trimEnd,
+      fadeIn, fadeOut, motionByName, motionAmount, effectsByName, effectIntensityByName, trimByName, volumeByName, fitByName, trimEnd,
       captionRaw, captionName, captionsOn, captionStyle, captionSize, captionLineHeight, captionFontScale,
       audioFile, built]);
 
@@ -582,6 +655,7 @@ export default function Home() {
       const mp = d.maps || {};
       setMotionByName(mp.motionByName || {}); setTrimByName(mp.trimByName || {});
       setVolumeByName(mp.volumeByName || {}); setFitByName(mp.fitByName || {});
+      setEffectsByName(mp.effectsByName || {}); setEffectIntensityByName(mp.effectIntensityByName || {});
       const cp = d.captions || {};
       setCaptionRaw(cp.captionRaw ?? null); setCaptionName(cp.captionName ?? null);
       setCaptionsOn(!!cp.captionsOn); setCaptionStyle(cp.captionStyle ?? "classic");
@@ -647,14 +721,14 @@ export default function Home() {
       const exportClips = trimClips(clips, exportDuration);
       const transitions = exportClips.map((c) => transitionsByName[c.name] || "cut");
       const motions = exportClips.map((c) => motionByName[c.name] || "none");
+      const effects = exportClips.map((c) => effectsByName[c.name] || "none");
+      const effectIntensities = exportClips.map((c) => effectIntensityByName[c.name] != null ? effectIntensityByName[c.name] : 70);
       // Per-clip video params (parallel to exportClips). Images get 0/1/none.
-      // Default depends on length: a clip LONGER than its slot trims (1x + in-point,
-      // extra cut off); a clip SHORTER slows to fill the slot ("fit"). An explicit
-      // fitByName choice overrides the default.
+      // Default: "fit" (Auto Speed-to-Fit so full video fills its narration slot).
       const modeOf = (c) => {
         const info = videoInfoByName[c.name];
         if (!info) return "fit";
-        return fitByName[c.name] || ((info.duration || 0) > (c.duration || 0) ? "trim" : "fit");
+        return fitByName[c.name] || "fit";
       };
       const trims = exportClips.map((c) =>
         (videoInfoByName[c.name] && modeOf(c) === "trim") ? (trimByName[c.name] || 0) : 0);
@@ -666,12 +740,13 @@ export default function Home() {
       });
       const volumes = exportClips.map((c) =>
         Object.prototype.hasOwnProperty.call(videosByName, c.name)
-          ? (volumeByName[c.name] == null ? 0.5 : volumeByName[c.name]) : 0);
+          ? (volumeByName[c.name] == null ? 0 : volumeByName[c.name]) : 0);
       const captions = captionsOn && captionCues.length ? captionCues : null;
       const blob = await renderVideo({
         clips: exportClips, imagesByName, videosByName, audioFile,
         width: renderDims.width, height: renderDims.height, fps,
         transitions, transitionDuration, motions, motionAmount, trims, volumes, speeds, fadeIn, fadeOut,
+        effects, effectIntensities,
         captions, captionStyle, captionSize, captionLineHeight, captionFontScale,
         onProgress: setProgress,
       });
@@ -682,7 +757,7 @@ export default function Home() {
       if (!cancelRef.current) setBusy(false);
     }
   }, [clips, exportDuration, imagesByName, videosByName, audioFile, renderDims, fps, transitionsByName, transitionDuration,
-      motionByName, motionAmount, trimByName, volumeByName, fitByName, videoInfoByName, fadeIn, fadeOut,
+      motionByName, motionAmount, effectsByName, effectIntensityByName, trimByName, volumeByName, fitByName, videoInfoByName, fadeIn, fadeOut,
       captionsOn, captionCues, captionStyle, captionSize, captionLineHeight, captionFontScale]);
 
   // --- SPIKE: WebCodecs GPU render (video-only, no audio). Proves the pipeline. ---
@@ -745,11 +820,11 @@ export default function Home() {
       const transitions = exportClips.map((c) => transitionsByName[c.name] || "cut");
       const motions = exportClips.map((c) => motionByName[c.name] || "none");
       // Per-clip video params (parallel to exportClips), same rule as the ffmpeg
-      // path: long clip → trim (1x + in-point), short clip → fit (slow to fill).
+      // path: Default is "fit" (Auto Speed-to-Fit).
       const modeOf = (c) => {
         const info = videoInfoByName[c.name];
         if (!info) return "fit";
-        return fitByName[c.name] || ((info.duration || 0) > (c.duration || 0) ? "trim" : "fit");
+        return fitByName[c.name] || "fit";
       };
       const trims = exportClips.map((c) =>
         (videoInfoByName[c.name] && modeOf(c) === "trim") ? (trimByName[c.name] || 0) : 0);
@@ -761,7 +836,7 @@ export default function Home() {
       });
       const volumes = exportClips.map((c) =>
         Object.prototype.hasOwnProperty.call(videosByName, c.name)
-          ? (volumeByName[c.name] == null ? 0.5 : volumeByName[c.name]) : 0);
+          ? (volumeByName[c.name] == null ? 0 : volumeByName[c.name]) : 0);
       // Request the full 8 Mbps. The renderer decides the effective rate: a streamed
       // (to-disk) output keeps it, while an in-memory output is capped to a memory-safe
       // rate for long videos — it makes that call because only it knows whether streaming
@@ -851,7 +926,7 @@ export default function Home() {
           <img className="unsupported__logo" src="/logo.svg" width="52" height="52" alt="" />
           <h1 className="unsupported__h">Open in Chrome, Edge, or Safari</h1>
           <p className="unsupported__p">
-            <span className="unsupported__brand">TryAIToday AutoEditor</span> exports video using your
+            <span className="unsupported__brand">MK AutoEditor</span> exports video using your
             browser’s built-in video encoder — which this browser doesn’t have.
           </p>
           <p className="unsupported__p">
@@ -865,7 +940,7 @@ export default function Home() {
 
   if (view === "list") {
     return (
-      <>
+      <ErrorBoundary>
         <DialogHost />
         <ProjectsHome
           projects={projects}
@@ -875,12 +950,12 @@ export default function Home() {
           onDelete={onDeleteProject}
           storage={storage}
         />
-      </>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <>
+    <ErrorBoundary>
     <DialogHost />
     <main className="app">
       {doneMsg && (
@@ -897,34 +972,9 @@ export default function Home() {
       )}
       <header className="nav">
         <div className="nav__brand">
-          <img className="brand__logo" src="/logo.svg" alt="" width="28" height="28" />
-          <span className="brand__name"><span className="brand__pre">TryAIToday</span> AutoEditor</span>
+          <img className="brand__logo" src="/logo.svg" alt="MK AutoEditor" width="28" height="28" />
+          <span className="brand__name"><span className="brand__pre">MK</span> AutoEditor</span>
           <span className="brand__tag">image + video · voiceover sync</span>
-        </div>
-        <div className="nav__links">
-          <a
-            className="dc-link"
-            href="https://discord.gg/5sxVBf3kx8"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Join the TryAIToday Discord"
-          >
-            <svg className="dc-link__icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-              <path d="M20.317 4.3698a19.7913 19.7913 0 0 0-4.8851-1.5152.0741.0741 0 0 0-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 0 0-.0785-.037 19.7363 19.7363 0 0 0-4.8852 1.515.0699.0699 0 0 0-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 0 0 .0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 0 0 .0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 0 0-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 0 1-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 0 1 .0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 0 1 .0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 0 1-.0066.1276 12.2986 12.2986 0 0 1-1.873.8914.0766.0766 0 0 0-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 0 0 .0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 0 0 .0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 0 0-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/>
-            </svg>
-            <span className="dc-link__text">Discord</span>
-          </a>
-          <a
-            className="ext-link"
-            href="https://chromewebstore.google.com/detail/bcmmekkamenpjoogmegiffgemlgikbgf?utm_source=item-share-cb"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Get the TryAIToday Flow Automator Chrome extension"
-          >
-            <span className="ext-link__icon" aria-hidden="true">🧩</span>
-            <span className="ext-link__text">Get the Extension</span>
-          </a>
-          <StorageRing storage={storage} />
         </div>
       </header>
 
@@ -1071,6 +1121,9 @@ export default function Home() {
           motionByName={motionByName} setMotion={setMotion}
           applyMotionAll={applyMotionAll} applyMotionAlternate={applyMotionAlternate}
           motionAmount={motionAmount} setMotionAmount={setMotionAmount}
+          effectsByName={effectsByName} setEffect={setEffect}
+          applyEffectAll={applyEffectAll}
+          effectIntensityByName={effectIntensityByName} setEffectIntensity={setEffectIntensity}
           videoInfoByName={videoInfoByName}
           trimByName={trimByName} setTrim={setTrim}
           volumeByName={volumeByName} setVolume={setVolume}
@@ -1087,6 +1140,6 @@ export default function Home() {
       )}
       </div>
     </main>
-    </>
+    </ErrorBoundary>
   );
 }

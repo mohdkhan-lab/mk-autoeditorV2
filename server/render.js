@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import ffmpegStatic from "ffmpeg-static";
 import { xfadeName, MIN_TRANSITION_DURATION, MAX_TRANSITION_DURATION } from "./transitions.js";
 import { buildCaptionBurn, CAPTION_FONT } from "./captions.js";
+import { getFfmpegEffectFilter } from "./effects.js";
 
 // Crash-safe module dir: import.meta.url works in ESM (dev); in the bundled/SEA
 // build it's empty, so fall back to cwd (prod overrides the paths via env anyway).
@@ -34,8 +35,8 @@ function vfChain(width, height, fps) {
 }
 
 // A still (no-zoom) clip stream: scale/pad to the canvas.
-function stillStream(i, width, height, fps) {
-  return `[${i}:v]${vfChain(width, height, fps)}[v${i}]`;
+function stillStream(i, width, height, fps, effFilt = "") {
+  return `[${i}:v]${vfChain(width, height, fps)}${effFilt ? `,${effFilt}` : ""}[v${i}]`;
 }
 
 // Clips backed by a video file (vs a still image) are detected by extension —
@@ -60,7 +61,7 @@ function atempoChain(speed) {
 // the slot (`speed` > 1 = fast-forward, via setpts), clone the last frame to fill
 // any slot still longer than the footage (tpad), cut to exactly `span`, and reset
 // PTS. With motion, an animated Ken Burns zoom is layered on (zoompan d=1).
-function videoStream(i, W, H, fps, span, motionType, amount, speed = 1) {
+function videoStream(i, W, H, fps, span, motionType, amount, speed = 1, effFilt = "") {
   const S = span.toFixed(3);
   // speed > 1 fast-forwards, speed < 1 slows down (both via setpts) so the whole
   // clip fills its slot. tpad clone still backstops any residual short footage.
@@ -70,7 +71,7 @@ function videoStream(i, W, H, fps, span, motionType, amount, speed = 1) {
     `tpad=stop_mode=clone:stop_duration=${S},trim=duration=${S},setpts=PTS-STARTPTS`;
   if (!motionType || motionType === "none") {
     // Re-timebase to CFR after a speed change so downstream xfade/encode stay clean.
-    return `${base}${changed ? `,fps=${fps}` : ""}[v${i}]`;
+    return `${base}${changed ? `,fps=${fps}` : ""}${effFilt ? `,${effFilt}` : ""}[v${i}]`;
   }
   const FR = Math.max(2, Math.round(span * fps));
   const A = amount.toFixed(4);
@@ -78,7 +79,7 @@ function videoStream(i, W, H, fps, span, motionType, amount, speed = 1) {
   const PW = Math.round(W * ZOOM_SS), PH = Math.round(H * ZOOM_SS);
   return `${base},scale=${PW}:${PH}:flags=bicubic,` +
     `zoompan=z='${z}':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${W}x${H}:fps=${fps},` +
-    `format=yuv420p[v${i}]`;
+    `format=yuv420p${effFilt ? `,${effFilt}` : ""}[v${i}]`;
 }
 
 // A Ken Burns zoom stream: one image frame expanded to `frames` output frames by
@@ -88,7 +89,7 @@ function videoStream(i, W, H, fps, span, motionType, amount, speed = 1) {
 // The supersample factor drives most of zoom's CPU/RAM cost, so it's tunable:
 // RENDER_ZOOM_SS (default 3 = smoothest; phones set 2 to stay responsive).
 const ZOOM_SS = Math.max(1, Math.min(3, parseFloat(process.env.RENDER_ZOOM_SS || "3")));
-function zoomStream(i, W, H, fps, motionType, amount, frames) {
+function zoomStream(i, W, H, fps, motionType, amount, frames, effFilt = "") {
   const A = amount.toFixed(4);
   const FR = Math.max(2, frames);
   const z = motionType === "zoomout" ? `1+${A}-(on/${FR - 1})*${A}` : `1+(on/${FR - 1})*${A}`;
@@ -97,7 +98,7 @@ function zoomStream(i, W, H, fps, motionType, amount, frames) {
   const pre = `[${i}:v]scale=${PW}:${PH}:force_original_aspect_ratio=decrease,` +
     `pad=${PW}:${PH}:(ow-iw)/2:(oh-ih)/2,setsar=1`;
   const zp = `zoompan=z='${z}':d=${FR}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${W}x${H}:fps=${fps}`;
-  return `${pre},${zp},format=yuv420p[v${i}]`;
+  return `${pre},${zp},format=yuv420p${effFilt ? `,${effFilt}` : ""}[v${i}]`;
 }
 function fadeVideo(fadeIn, fadeOut, total) {
   const parts = [];
@@ -153,7 +154,7 @@ function transitionDur(transitions, transitionDuration, k, frame) {
 // xfade chain) for a list of clips whose `.start` is relative to THIS chain's t=0.
 // Returns { inputs, parts, last } — `last` is the composited video label. Shared by
 // the single-pass render and by each segment of a segmented render.
-function buildVideoChain(clips, paths, { width, height, fps, transitions, transitionDuration, motions, motionAmount = 0.08, trims, speeds }) {
+function buildVideoChain(clips, paths, { width, height, fps, transitions, transitionDuration, motions, motionAmount = 0.08, trims, speeds, effects, effectIntensities }) {
   const n = clips.length;
   const frame = 1 / fps;
   const tdur = (k) => transitionDur(transitions, transitionDuration, k, frame);
@@ -163,17 +164,20 @@ function buildVideoChain(clips, paths, { width, height, fps, transitions, transi
   const parts = [];
   for (let i = 0; i < n; i++) {
     const span = (i < n - 1 ? clips[i].duration + tdur(i + 1) : clips[i].duration) + 2 * frame;
+    const effId = effects && effects[i];
+    const effInt = effectIntensities && effectIntensities[i];
+    const effFilt = (effId && effId !== "none") ? getFfmpegEffectFilter(effId, effInt, span, fps) : "";
     if (isVideoPath(paths[i]) && !clips[i].gap) {
       const inSec = Math.max(0, (trims && +trims[i]) || 0);
       const spd = speeds && +speeds[i] > 0 ? +speeds[i] : 1;
-      inputs.push("-ss", inSec.toFixed(3), "-i", paths[i]);
-      parts.push(videoStream(i, width, height, fps, span, motTypes[i], motionAmount, spd));
+      inputs.push("-accurate_seek", "-ss", inSec.toFixed(3), "-i", paths[i]);
+      parts.push(videoStream(i, width, height, fps, span, motTypes[i], motionAmount, spd, effFilt));
     } else if (motTypes[i] === "none") {
       inputs.push("-loop", "1", "-t", span.toFixed(3), "-i", paths[i]);
-      parts.push(stillStream(i, width, height, fps));
+      parts.push(stillStream(i, width, height, fps, effFilt));
     } else {
       inputs.push("-i", paths[i]);
-      parts.push(zoomStream(i, width, height, fps, motTypes[i], motionAmount, Math.round(span * fps)));
+      parts.push(zoomStream(i, width, height, fps, motTypes[i], motionAmount, Math.round(span * fps), effFilt));
     }
   }
   let last = "v0";
@@ -185,13 +189,28 @@ function buildVideoChain(clips, paths, { width, height, fps, transitions, transi
   return { inputs, parts, last };
 }
 
-function graphArgs({ clips, paths, audioName, width, height, fps, transitions, transitionDuration, motions, motionAmount = 0.08, trims, volumes, speeds, audible, fadeIn, fadeOut, total, capChain, encoder }, filterFiles) {
+function graphArgs({ clips, paths, audioName, width, height, fps, transitions, transitionDuration, motions, motionAmount = 0.08, trims, volumes, speeds, effects, effectIntensities, audible, fadeIn, fadeOut, total, capChain, encoder, particleAsset }, filterFiles) {
   const n = clips.length;
-  const { inputs, parts, last: vEnd } = buildVideoChain(clips, paths, { width, height, fps, transitions, transitionDuration, motions, motionAmount, trims, speeds });
+  const { inputs, parts, last: vEnd } = buildVideoChain(clips, paths, { width, height, fps, transitions, transitionDuration, motions, motionAmount, trims, speeds, effects, effectIntensities });
   let last = vEnd;
   if (capChain) { parts.push(`[${last}]${capChain}[vcap]`); last = "vcap"; }
   const vf = fadeVideo(fadeIn, fadeOut, total);
   if (vf.length) { parts.push(`[${last}]${vf.join(",")}[vf]`); last = "vf"; }
+
+  if (particleAsset) {
+    const pIdx = n + 1;
+    parts.push(`[${pIdx}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${fps}[pvid]`);
+    const pClips = clips.filter((c, i) => effects && effects[i] === "particles");
+    let enableExpr = "";
+    if (pClips.length > 0 && pClips.length < clips.length) {
+      enableExpr = `:enable='${pClips.map((c) => `between(t,${c.start.toFixed(3)},${(c.start + c.duration).toFixed(3)})`).join("+")}'`;
+    }
+    const pIntensities = clips.map((c, i) => (effects && effects[i] === "particles" ? ((effectIntensities && effectIntensities[i]) || 75) : 0)).filter(Boolean);
+    const avgInt = pIntensities.length ? (pIntensities.reduce((a, b) => a + b, 0) / pIntensities.length) : 75;
+    const op = (Math.max(0.2, Math.min(1.0, (avgInt / 100) * 0.95))).toFixed(2);
+    parts.push(`[${last}][pvid]blend=all_mode=screen:all_opacity=${op}${enableExpr}[vpart]`);
+    last = "vpart";
+  }
 
   // Audio: the voiceover is input n. Any video clip with a volume above 0 (and an
   // actual audio track) is delayed to its slot, volume-scaled, and summed in — so
@@ -221,9 +240,10 @@ function graphArgs({ clips, paths, audioName, width, height, fps, transitions, t
     if (af.length) { parts.push(`[${n}:a]${af.join(",")}[aout]`); amap = "[aout]"; }
   }
 
+  const extraInputs = particleAsset ? ["-stream_loop", "-1", "-i", particleAsset] : [];
   filterFiles.push({ name: "fc.txt", text: parts.join(";") });
   return [
-    ...inputs, "-i", audioName,
+    ...inputs, "-i", audioName, ...extraInputs,
     "-filter_complex_script", "fc.txt",
     "-map", `[${last}]`, "-map", amap,
     "-t", total.toFixed(3),
@@ -288,7 +308,7 @@ function buildConcatAudioArgs({ audioName, audioClips, fadeIn, fadeOut, total },
 // Chunk boundaries are placed at CUT points so the copy-concat has no visible seam; if no
 // cut appears within a hard cap, a boundary is forced (that one crossfade becomes a cut).
 function buildSegmentedPlan(spec, io) {
-  const { clips, width, height, fps = 30, transitions, transitionDuration = 0.4, motions, motionAmount = 0.08, trims, volumes, speeds, fadeIn = 0, fadeOut = 0,
+  const { clips, width, height, fps = 30, transitions, transitionDuration = 0.4, motions, motionAmount = 0.08, trims, volumes, speeds, effects, effectIntensities, fadeIn = 0, fadeOut = 0,
     captions, captionStyle = "classic", captionSize = "md", captionLineHeight, captionFontScale } = spec;
   const { paths, audioName, encoder = "libx264", audible } = io;
   const n = clips.length;
@@ -319,6 +339,7 @@ function buildSegmentedPlan(spec, io) {
     const slice = (a) => (Array.isArray(a) ? a.slice(clo, chi + 1) : a);
     const { inputs, parts, last: vEnd } = buildVideoChain(segClips, slice(paths), {
       width, height, fps, transitions: slice(transitions), transitionDuration, motions: slice(motions), motionAmount, trims: slice(trims), speeds: slice(speeds),
+      effects: slice(effects), effectIntensities: slice(effectIntensities),
     });
     let last = vEnd;
     const capFiles = [];
@@ -371,8 +392,8 @@ function buildSegmentedPlan(spec, io) {
 // spec: { clips, width, height, fps, transitions, transitionDuration, fadeIn, fadeOut }
 // io:   { paths: string[] (per-clip basenames), audioName, capChain, encoder }
 export function buildRenderPlan(spec, io) {
-  const { clips, width, height, fps = 30, transitions, transitionDuration = 0.4, motions, motionAmount = 0.08, trims, volumes, speeds, fadeIn = 0, fadeOut = 0 } = spec;
-  const { paths, audioName, capChain = "", encoder = "libx264", audible } = io;
+  const { clips, width, height, fps = 30, transitions, transitionDuration = 0.4, motions, motionAmount = 0.08, trims, volumes, speeds, effects, effectIntensities, fadeIn = 0, fadeOut = 0 } = spec;
+  const { paths, audioName, capChain = "", encoder = "libx264", audible, particleAsset } = io;
   const total = clips.length ? clips[clips.length - 1].start + clips[clips.length - 1].duration : 0;
   const hasTransition = Array.isArray(transitions) && clips.length >= 2 &&
     transitions.some((t, i) => i > 0 && t && t !== "cut");
@@ -382,13 +403,16 @@ export function buildRenderPlan(spec, io) {
   // Video clips always need the filter-graph path (trim/fit/zoom/audio-mix).
   const hasVideo = Array.isArray(paths) &&
     paths.some((p, i) => isVideoPath(p) && clips[i] && !clips[i].gap);
-  const useGraph = hasTransition || hasMotion || hasVideo;
+  // Effects also require the filter-graph path
+  const hasEffect = Array.isArray(effects) &&
+    effects.some((e, i) => e && e !== "none" && clips[i] && !clips[i].gap);
+  const useGraph = hasTransition || hasMotion || hasVideo || hasEffect || !!particleAsset;
   // Big graph timelines are split into segments + a join to dodge the OS limits.
   if (useGraph && clips.length > SEGMENT_MAX) return buildSegmentedPlan(spec, io);
-  const common = { clips, paths, audioName, width, height, fps, fadeIn, fadeOut, total, capChain, encoder };
+  const common = { clips, paths, audioName, width, height, fps, fadeIn, fadeOut, total, capChain, encoder, particleAsset };
   const filterFiles = [];
   const args = useGraph
-    ? graphArgs({ ...common, transitions, transitionDuration, motions, motionAmount, trims, volumes, speeds, audible }, filterFiles)
+    ? graphArgs({ ...common, transitions, transitionDuration, motions, motionAmount, trims, volumes, speeds, effects, effectIntensities, audible }, filterFiles)
     : concatArgs(common, filterFiles);
   return { mode: useGraph ? "graph" : "concat", total, args, filterFiles };
 }
@@ -481,11 +505,20 @@ export async function writeInputs(dir, spec, fileMap) {
     capChain = filter;
   }
 
+  const PARTICLE_SRC = process.env.PARTICLE_ASSET_PATH
+    || (existsSync(nextToExe("particles.mp4")) ? nextToExe("particles.mp4") : path.join(MODULE_DIR, "assets", "particles.mp4"));
+  const hasParticles = Array.isArray(spec.effects) && spec.effects.some((e) => e === "particles");
+  let particleAsset = "";
+  if (hasParticles && existsSync(PARTICLE_SRC)) {
+    await fs.copyFile(PARTICLE_SRC, path.join(dir, "particles.mp4"));
+    particleAsset = "particles.mp4";
+  }
+
   // Which video clips actually have audio (so we only mix real streams in).
   const audible = await Promise.all(clips.map((c, i) =>
     (c.gap || !isVideoPath(paths[i])) ? Promise.resolve(false) : probeHasAudio(dir, paths[i])));
 
-  return { paths, audioName, capChain, audible };
+  return { paths, audioName, capChain, audible, particleAsset };
 }
 
 // Parse ffmpeg -progress output → fraction in [0,1].
