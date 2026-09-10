@@ -157,11 +157,13 @@ export default function Home() {
   const [captionSize, setCaptionSize] = useState("md");
   const [captionLineHeight, setCaptionLineHeight] = useState(null); // null = per-style default
   const [captionFontScale, setCaptionFontScale] = useState(null);   // null = use the size preset
+  const [captionPos, setCaptionPos] = useState("bottom");
   const [bgmFile, setBgmFile] = useState(null);
   const [bgmVolume, setBgmVolume] = useState(0.25);
   const [bgmDucking, setBgmDucking] = useState(true);
   const [transitionSfx, setTransitionSfx] = useState(true);
   const [transitionSfxVol, setTransitionSfxVol] = useState(0.5);
+  const [transitionSfxType, setTransitionSfxType] = useState("whoosh");
   const [watermarkFile, setWatermarkFile] = useState(null);
   const [watermarkPos, setWatermarkPos] = useState("top-right");
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.8);
@@ -860,11 +862,11 @@ export default function Home() {
           clips: exportClips, width: renderDims.width, height: renderDims.height, fps, bitrate, profile,
           transitions, transitionDuration, motions, motionAmount, audioFile,
           bgmFile, bgmVolume, bgmDucking,
-          transitionSfx, transitionSfxVol,
+          transitionSfx, transitionSfxVol, transitionSfxType,
           watermarkImg, watermarkPos, watermarkOpacity, watermarkScale,
           videosByName, trims, speeds, volumes,
           cues: captionsOn && captionCues.length ? captionCues : null,
-          captionStyle, captionSize, captionLineHeight, captionFontScale,
+          captionStyle, captionSize, captionLineHeight, captionFontScale, captionPos,
         },
         imagesByName,
         (frac, phase) => { setWcProgress(frac); if (phase) setWcPhase(phase); },
@@ -1152,11 +1154,13 @@ export default function Home() {
           captionLineHeight={captionLineHeight} setCaptionLineHeight={setCaptionLineHeight}
           captionFontScale={captionFontScale} setCaptionFontScale={setCaptionFontScale}
           captionName={captionName} captionError={captionError} onCaptionFile={onCaptionFile}
+          captionPos={captionPos} setCaptionPos={setCaptionPos}
           bgmFile={bgmFile} setBgmFile={setBgmFile}
           bgmVolume={bgmVolume} setBgmVolume={setBgmVolume}
           bgmDucking={bgmDucking} setBgmDucking={setBgmDucking}
           transitionSfx={transitionSfx} setTransitionSfx={setTransitionSfx}
           transitionSfxVol={transitionSfxVol} setTransitionSfxVol={setTransitionSfxVol}
+          transitionSfxType={transitionSfxType} setTransitionSfxType={setTransitionSfxType}
           watermarkFile={watermarkFile} setWatermarkFile={setWatermarkFile}
           watermarkPos={watermarkPos} setWatermarkPos={setWatermarkPos}
           watermarkOpacity={watermarkOpacity} setWatermarkOpacity={setWatermarkOpacity}

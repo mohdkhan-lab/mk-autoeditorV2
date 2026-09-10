@@ -9,7 +9,7 @@ import {
   CAPTION_STYLE_LIST, CAPTION_SIZES, captionAt, captionCueAt, drawCaption, captionFontPx, captionLineHeightDefault,
 } from "../lib/captions";
 import { EFFECTS, getPreDrawTransform, applyCanvasPostEffect } from "../lib/effects";
-import { playWhoosh } from "../lib/sfx";
+import { playWhoosh, playSfx, TRANSITION_SFX_LIST } from "../lib/sfx";
 import { getBgmDuckedGain, extractVoiceSegments } from "../lib/bgm";
 import { drawWatermark } from "../lib/watermark";
 
@@ -47,8 +47,10 @@ export default function Editor({
   captionSize, setCaptionSize, captionLineHeight, setCaptionLineHeight,
   captionFontScale, setCaptionFontScale,
   captionName, captionError, onCaptionFile,
+  captionPos = "bottom", setCaptionPos,
   bgmFile, setBgmFile, bgmVolume = 0.25, setBgmVolume, bgmDucking = true, setBgmDucking,
   transitionSfx = true, setTransitionSfx, transitionSfxVol = 0.3, setTransitionSfxVol,
+  transitionSfxType = "whoosh", setTransitionSfxType,
   watermarkFile, setWatermarkFile, watermarkPos = "bottom-right", setWatermarkPos,
   watermarkOpacity = 0.85, setWatermarkOpacity, watermarkScale = 0.15, setWatermarkScale,
 }) {
@@ -101,6 +103,41 @@ export default function Editor({
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+  }, []);
+
+  const tabsRef = useRef(null);
+  const [tabsGrid, setTabsGrid] = useState(false);
+  const isDraggingTabsRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const scrollStartRef = useRef(0);
+
+  const onTabsPointerDown = useCallback((e) => {
+    isDraggingTabsRef.current = true;
+    dragStartXRef.current = e.clientX;
+    scrollStartRef.current = tabsRef.current ? tabsRef.current.scrollLeft : 0;
+  }, []);
+
+  const onTabsPointerMove = useCallback((e) => {
+    if (!isDraggingTabsRef.current || !tabsRef.current) return;
+    const dx = e.clientX - dragStartXRef.current;
+    tabsRef.current.scrollLeft = scrollStartRef.current - dx;
+  }, []);
+
+  const onTabsPointerUp = useCallback(() => {
+    isDraggingTabsRef.current = false;
+  }, []);
+
+  const scrollTabs = useCallback((delta) => {
+    if (tabsRef.current) {
+      tabsRef.current.scrollBy({ left: delta, behavior: "smooth" });
+    }
+  }, []);
+
+  const onTabsWheel = useCallback((e) => {
+    if (!tabsRef.current) return;
+    if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+      tabsRef.current.scrollLeft += e.deltaY;
+    }
   }, []);
 
   // Gap "+" → pick a file to fill an empty slot / lead-in.
@@ -365,7 +402,7 @@ export default function Editor({
     if (captionsOn && captionCues && captionCues.length) {
       const cue = captionCueAt ? captionCueAt(captionCues, t) : null;
       const txt = cue ? cue.text : captionAt(captionCues, t);
-      if (txt) drawCaption(ctx, txt, W, H, captionStyle, captionFontPx(H, captionSize, captionFontScale), captionLineHeight, cue, t);
+      if (txt) drawCaption(ctx, txt, W, H, captionStyle, captionFontPx(H, captionSize, captionFontScale), captionLineHeight, cue, t, captionPos);
     }
 
     // Watermark / channel logo overlay (burned in under fades)
@@ -389,7 +426,7 @@ export default function Editor({
   }, [clips, imageEls, transitionsByName, transitionDuration, motionByName, motionAmount,
       effectsByName, effectIntensityByName,
       fadeIn, fadeOut, duration, exportDuration, playing, videoInfoByName, videoParams, volumeByName,
-      captionsOn, captionCues, captionStyle, captionSize, captionLineHeight, captionFontScale,
+      captionsOn, captionCues, captionStyle, captionSize, captionLineHeight, captionFontScale, captionPos,
       watermarkPos, watermarkOpacity, watermarkScale]);
 
   useEffect(() => { drawRef.current = draw; }, [draw]);
@@ -432,7 +469,7 @@ export default function Editor({
         }
       }
 
-      // Live Transition Whoosh SFX trigger
+      // Live Transition SFX trigger
       if (transitionSfx && clips && clips.length > 1) {
         for (let i = 1; i < clips.length; i++) {
           const cutTime = clips[i].start;
@@ -441,7 +478,7 @@ export default function Editor({
             if (lastWhooshCutRef.current !== i) {
               lastWhooshCutRef.current = i;
               const actx = getAudioCtx();
-              if (actx) playWhoosh(actx, transitionSfxVol);
+              if (actx) playSfx(actx, transitionSfxType || "whoosh", transitionSfxVol);
             }
             break;
           }
@@ -488,7 +525,7 @@ export default function Editor({
       a.removeEventListener("ended", onStop);
       cancelAnimationFrame(rafRef.current);
     };
-  }, [audioUrl, bgmUrl, voiceSegments, bgmDucking, bgmVolume, transitionSfx, transitionSfxVol, clips, getAudioCtx]);
+  }, [audioUrl, bgmUrl, voiceSegments, bgmDucking, bgmVolume, transitionSfx, transitionSfxVol, transitionSfxType, clips, getAudioCtx]);
 
   const toggle = useCallback(() => {
     const a = audioRef.current;
@@ -643,62 +680,62 @@ export default function Editor({
         <div className="viewer">
           <div className="viewer__frame">
             <canvas ref={canvasRef} width={dims.width} height={dims.height} className="viewer__canvas" />
+          </div>
 
-            {/* Floating CapCut Pro Glass Playback HUD */}
-            <div className="hud-dock">
-              <div className="hud-time">
-                <span>{tc(time)}</span>
-                <span className="hud-time__sep">/</span>
-                <span className="hud-time__total">{tc(exportDuration)}</span>
-              </div>
-              <div className="hud-controls">
-                <button
-                  type="button"
-                  className="hud-step"
-                  onClick={() => seek(Math.max(0, time - 1))}
-                  title="Step back 1s (Left Arrow)"
-                  aria-label="Step back"
-                >⏮</button>
-                <button
-                  type="button"
-                  className={`hud-play ${playing ? "is-playing" : ""}`}
-                  onClick={toggle}
-                  aria-label={playing ? "Pause" : "Play"}
-                  title={playing ? "Pause (Space)" : "Play (Space)"}
-                >
-                  {playing ? "❚❚" : "►"}
-                </button>
-                <button
-                  type="button"
-                  className="hud-step"
-                  onClick={() => seek(Math.min(exportDuration, time + 1))}
-                  title="Step forward 1s (Right Arrow)"
-                  aria-label="Step forward"
-                >⏭</button>
-              </div>
-              <div className="hud-extra">
-                <button
-                  type="button"
-                  className="hud-step"
-                  onClick={undo}
-                  disabled={!canUndo}
-                  title="Undo (Ctrl+Z)"
-                  aria-label="Undo"
-                >↺</button>
-                <button
-                  type="button"
-                  className="hud-step"
-                  onClick={redo}
-                  disabled={!canRedo}
-                  title="Redo (Ctrl+Shift+Z)"
-                  aria-label="Redo"
-                >↻</button>
-                {active && (
-                  <span className="hud-badge" title={active.name}>
-                    {active.gap ? "Empty" : `Clip ${activeIndex}/${imageCount}`}
-                  </span>
-                )}
-              </div>
+          {/* Player Controls Bar — positioned below canvas so it never obstructs subtitles */}
+          <div className="hud-dock hud-dock--docked">
+            <div className="hud-time">
+              <span>{tc(time)}</span>
+              <span className="hud-time__sep">/</span>
+              <span className="hud-time__total">{tc(exportDuration)}</span>
+            </div>
+            <div className="hud-controls">
+              <button
+                type="button"
+                className="hud-step"
+                onClick={() => seek(Math.max(0, time - 1))}
+                title="Step back 1s (Left Arrow)"
+                aria-label="Step back"
+              >⏮</button>
+              <button
+                type="button"
+                className={`hud-play ${playing ? "is-playing" : ""}`}
+                onClick={toggle}
+                aria-label={playing ? "Pause" : "Play"}
+                title={playing ? "Pause (Space)" : "Play (Space)"}
+              >
+                {playing ? "❚❚" : "►"}
+              </button>
+              <button
+                type="button"
+                className="hud-step"
+                onClick={() => seek(Math.min(exportDuration, time + 1))}
+                title="Step forward 1s (Right Arrow)"
+                aria-label="Step forward"
+              >⏭</button>
+            </div>
+            <div className="hud-extra">
+              <button
+                type="button"
+                className="hud-step"
+                onClick={undo}
+                disabled={!canUndo}
+                title="Undo (Ctrl+Z)"
+                aria-label="Undo"
+              >↺</button>
+              <button
+                type="button"
+                className="hud-step"
+                onClick={redo}
+                disabled={!canRedo}
+                title="Redo (Ctrl+Shift+Z)"
+                aria-label="Redo"
+              >↻</button>
+              {active && (
+                <span className="hud-badge" title={active.name}>
+                  {active.gap ? "Empty" : `Clip ${activeIndex}/${imageCount}`}
+                </span>
+              )}
             </div>
           </div>
 
@@ -754,64 +791,94 @@ export default function Editor({
       </div>
 
       <aside className="side">
-        <div className="side__tabs">
+        <div className="side__tabs-header">
           <button
             type="button"
-            className={`sidetab ${sidebarTab === "effects" ? "is-active" : ""}`}
-            onClick={() => setSidebarTab("effects")}
+            className="side__tab-nav"
+            onClick={() => scrollTabs(-140)}
+            title="Scroll tabs left"
+            aria-label="Scroll tabs left"
+          >‹</button>
+          <div
+            ref={tabsRef}
+            className={`side__tabs ${tabsGrid ? "side__tabs--grid" : ""}`}
+            onWheel={onTabsWheel}
+            onPointerDown={onTabsPointerDown}
+            onPointerMove={onTabsPointerMove}
+            onPointerUp={onTabsPointerUp}
           >
-            ✨ Effects
-          </button>
+            <button
+              type="button"
+              className={`sidetab ${sidebarTab === "effects" ? "is-active" : ""}`}
+              onClick={() => setSidebarTab("effects")}
+            >
+              ✨ Effects
+            </button>
+            <button
+              type="button"
+              className={`sidetab ${sidebarTab === "transitions" ? "is-active" : ""}`}
+              onClick={() => setSidebarTab("transitions")}
+            >
+              🔀 Transitions
+            </button>
+            <button
+              type="button"
+              className={`sidetab ${sidebarTab === "motion" ? "is-active" : ""}`}
+              onClick={() => setSidebarTab("motion")}
+            >
+              ⤢ Motion
+            </button>
+            <button
+              type="button"
+              className={`sidetab ${sidebarTab === "captions" ? "is-active" : ""}`}
+              onClick={() => setSidebarTab("captions")}
+            >
+              💬 Captions
+            </button>
+            <button
+              type="button"
+              className={`sidetab ${sidebarTab === "audio" ? "is-active" : ""}`}
+              onClick={() => setSidebarTab("audio")}
+            >
+              🎵 Audio
+            </button>
+            <button
+              type="button"
+              className={`sidetab ${sidebarTab === "watermark" ? "is-active" : ""}`}
+              onClick={() => setSidebarTab("watermark")}
+            >
+              🏷️ Logo
+            </button>
+            <button
+              type="button"
+              className={`sidetab ${sidebarTab === "export" ? "is-active" : ""}`}
+              onClick={() => setSidebarTab("export")}
+            >
+              📦 Export
+            </button>
+            <button
+              type="button"
+              className={`sidetab ${sidebarTab === "all" ? "is-active" : ""}`}
+              onClick={() => setSidebarTab("all")}
+              title="Show all inspector panels"
+            >
+              All
+            </button>
+          </div>
           <button
             type="button"
-            className={`sidetab ${sidebarTab === "transitions" ? "is-active" : ""}`}
-            onClick={() => setSidebarTab("transitions")}
-          >
-            🔀 Transitions
-          </button>
+            className="side__tab-nav"
+            onClick={() => scrollTabs(140)}
+            title="Scroll tabs right"
+            aria-label="Scroll tabs right"
+          >›</button>
           <button
             type="button"
-            className={`sidetab ${sidebarTab === "motion" ? "is-active" : ""}`}
-            onClick={() => setSidebarTab("motion")}
-          >
-            ⤢ Motion
-          </button>
-          <button
-            type="button"
-            className={`sidetab ${sidebarTab === "captions" ? "is-active" : ""}`}
-            onClick={() => setSidebarTab("captions")}
-          >
-            💬 Captions
-          </button>
-          <button
-            type="button"
-            className={`sidetab ${sidebarTab === "audio" ? "is-active" : ""}`}
-            onClick={() => setSidebarTab("audio")}
-          >
-            🎵 Audio
-          </button>
-          <button
-            type="button"
-            className={`sidetab ${sidebarTab === "watermark" ? "is-active" : ""}`}
-            onClick={() => setSidebarTab("watermark")}
-          >
-            🏷️ Logo
-          </button>
-          <button
-            type="button"
-            className={`sidetab ${sidebarTab === "export" ? "is-active" : ""}`}
-            onClick={() => setSidebarTab("export")}
-          >
-            📦 Export
-          </button>
-          <button
-            type="button"
-            className={`sidetab ${sidebarTab === "all" ? "is-active" : ""}`}
-            onClick={() => setSidebarTab("all")}
-            title="Show all inspector panels"
-          >
-            All
-          </button>
+            className={`side__tab-gridtoggle ${tabsGrid ? "is-active" : ""}`}
+            onClick={() => setTabsGrid((g) => !g)}
+            title={tabsGrid ? "Switch to horizontal scroll tab bar" : "Expand all tabs into 2-row grid"}
+            aria-label="Toggle tabs grid view"
+          >⊞</button>
         </div>
 
         {(sidebarTab === "export" || sidebarTab === "all") && (
@@ -1057,19 +1124,58 @@ export default function Editor({
                 {transitionSfx ? "On" : "Off"}
               </button>
               <span className="cap-meta">
-                💨 Whoosh sound effect on scene cuts
+                🎵 Popular sound effects on scene transitions
               </span>
             </div>
             {transitionSfx && (
-              <label className="trdur" style={{ marginTop: 8 }}>
-                <span>SFX Volume</span>
-                <input
-                  type="range" min={0.05} max={1} step={0.05}
-                  value={transitionSfxVol}
-                  onChange={(e) => setTransitionSfxVol && setTransitionSfxVol(+e.target.value)}
-                />
-                <span className="trdur__val">{Math.round(transitionSfxVol * 100)}%</span>
-              </label>
+              <>
+                <div className="mini-h" style={{ marginTop: 10 }}>Sound Style</div>
+                <div className="sfx-chips">
+                  {TRANSITION_SFX_LIST.map((sfx) => (
+                    <button
+                      key={sfx.id}
+                      type="button"
+                      className={`sfxchip ${transitionSfxType === sfx.id ? "is-on" : ""}`}
+                      onClick={() => {
+                        if (setTransitionSfxType) setTransitionSfxType(sfx.id);
+                        const actx = getAudioCtx();
+                        if (actx) playSfx(actx, sfx.id, transitionSfxVol);
+                      }}
+                      title={`${sfx.label} (${sfx.desc})`}
+                    >
+                      <span className="sfxchip__icon">{sfx.icon}</span>
+                      <span className="sfxchip__label">{sfx.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="cap-replace"
+                    style={{ margin: 0, padding: "4px 10px", fontSize: 11.5 }}
+                    onClick={() => {
+                      const actx = getAudioCtx();
+                      if (actx) playSfx(actx, transitionSfxType || "whoosh", transitionSfxVol);
+                    }}
+                  >
+                    ▶ Test Sound
+                  </button>
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                    {(TRANSITION_SFX_LIST.find((s) => s.id === transitionSfxType) || {}).desc || ""}
+                  </span>
+                </div>
+
+                <label className="trdur" style={{ marginTop: 8 }}>
+                  <span>SFX Volume</span>
+                  <input
+                    type="range" min={0.05} max={1} step={0.05}
+                    value={transitionSfxVol}
+                    onChange={(e) => setTransitionSfxVol && setTransitionSfxVol(+e.target.value)}
+                  />
+                  <span className="trdur__val">{Math.round(transitionSfxVol * 100)}%</span>
+                </label>
+              </>
             )}
           </div>
         )}
@@ -1157,6 +1263,25 @@ export default function Editor({
                         onClick={() => setCaptionStyle(st.id)}
                       >
                         {st.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mini-h" style={{ marginTop: 12 }}>Vertical Position</div>
+                  <div className="seg">
+                    {[
+                      ["bottom", "Bottom"],
+                      ["lower", "Lower ⅓"],
+                      ["middle", "Middle"],
+                      ["top", "Top"],
+                    ].map(([pId, pLbl]) => (
+                      <button
+                        key={pId}
+                        type="button"
+                        className={captionPos === pId ? "is-on" : ""}
+                        onClick={() => setCaptionPos && setCaptionPos(pId)}
+                      >
+                        {pLbl}
                       </button>
                     ))}
                   </div>
