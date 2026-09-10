@@ -1405,3 +1405,218 @@ button:focus-visible, .dz:focus-visible, a:focus-visible {
   color: #fbbf24; font-weight: 700;
 }
 
+/* ---------- Fullscreen Cinema Video Preview ---------- */
+.viewer__frame:fullscreen {
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+.viewer__frame:fullscreen .viewer__aspect {
+  max-width: 100vw;
+  max-height: 100vh;
+  width: auto;
+  height: auto;
+}
+.viewer__fs-corner {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  background: rgba(18, 20, 27, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, background 0.15s ease, transform 0.15s ease;
+  font-size: 15px;
+}
+.viewer__frame:hover .viewer__fs-corner {
+  opacity: 1;
+}
+.viewer__fs-corner:hover {
+  background: rgba(245, 158, 11, 0.3);
+  border-color: var(--accent);
+  color: #fbbf24;
+  transform: scale(1.05);
+}
+
+/* ---------- Timeline Toolbar & Zoom Controls ---------- */
+.tl__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--line-soft);
+  position: sticky;
+  left: 0;
+  z-index: 12;
+  background: var(--panel);
+}
+.tl__toolbar-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tl__toolbar-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--amber);
+}
+.tl__toolbar-meta {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+.tl__zoom-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.tl__zoom-label {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.tl__zoom-btn {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.12s ease;
+}
+.tl__zoom-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--amber);
+}
+.tl__zoom-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.tl__zoom-val {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--amber);
+  font-weight: 700;
+  min-width: 28px;
+  text-align: center;
+}
+.tl__zoom-slider {
+  width: 90px;
+  height: 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.tl__zoom-reset {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.tl__zoom-reset:hover {
+  background: rgba(245, 158, 11, 0.35);
+  border-color: var(--accent);
+}
+
+/* Sticky track gutter */
+.tl__gutter {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: var(--panel);
+}
+
+/* ---------- Caption Inline Line Editor ---------- */
+.cap-editor {
+  background: var(--panel-2);
+  border: 1px solid var(--amber-dim);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cap-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cap-editor__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.cap-editor__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line-soft);
+}
+.cap-editor__time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex: none;
+}
+.cap-editor__input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.cap-editor__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+

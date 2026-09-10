@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { transitionOf } from "../lib/transitions";
 
 function label(t) {
@@ -40,6 +40,20 @@ export default function Timeline({
 }) {
   const trackRef = useRef(null);
   const downRef = useRef(null); // pointer-down position, to tell a clip tap from a drag
+  const [zoom, setZoom] = useState(1);
+
+  // Auto-follow playhead when zoomed
+  useEffect(() => {
+    if (zoom <= 1 || !trackRef.current || !duration) return;
+    const parent = trackRef.current.closest(".tl");
+    if (!parent) return;
+    const progress = time / duration;
+    const trackWidth = trackRef.current.clientWidth;
+    const targetScroll = progress * trackWidth - parent.clientWidth / 2;
+    if (Math.abs(parent.scrollLeft - targetScroll) > 120) {
+      parent.scrollLeft = Math.max(0, targetScroll);
+    }
+  }, [time, duration, zoom]);
 
   // Scrub the playhead. Reference the track's box for x/width; the ruler and
   // audio lane are horizontally aligned with it, so this works for all three.
@@ -157,13 +171,60 @@ export default function Timeline({
   // track past the container so it scrolls horizontally instead of crushing
   // clips into slivers. Percentages resolve against this wider track, so the
   // ruler, clips, waveform and playhead all stay aligned.
-  const rowMin = clips.length ? 30 + clips.length * 72 : 0;
+  const baseMin = clips.length ? 30 + clips.length * 72 : 0;
+  const rowMin = zoom > 1 ? `calc(${Math.max(baseMin, 600)}px * ${zoom})` : (baseMin ? `${baseMin}px` : undefined);
 
   const trimPos = trimEnd > 0 && trimEnd < duration ? trimEnd : duration;
   const trimmed = trimPos < duration;
 
   return (
-    <div className="tl" style={rowMin ? { "--tl-min": `${rowMin}px` } : undefined}>
+    <div className="tl" style={rowMin ? { "--tl-min": rowMin } : undefined}>
+      <div className="tl__toolbar">
+        <div className="tl__toolbar-info">
+          <span className="tl__toolbar-title">TIMELINE</span>
+          <span className="tl__toolbar-meta">{clips.length} clips · {duration ? duration.toFixed(1) : 0}s</span>
+        </div>
+        <div className="tl__zoom-bar">
+          <span className="tl__zoom-label">Zoom</span>
+          <button
+            type="button"
+            className="tl__zoom-btn"
+            onClick={() => setZoom((z) => Math.max(1, +(z - 0.5).toFixed(1)))}
+            disabled={zoom <= 1}
+            title="Zoom Out"
+            aria-label="Zoom out"
+          >−</button>
+          <span className="tl__zoom-val">{zoom.toFixed(1)}×</span>
+          <input
+            type="range"
+            min={1}
+            max={4}
+            step={0.25}
+            value={zoom}
+            onChange={(e) => setZoom(+e.target.value)}
+            className="tl__zoom-slider"
+            title="Timeline Zoom Slider"
+          />
+          <button
+            type="button"
+            className="tl__zoom-btn"
+            onClick={() => setZoom((z) => Math.min(4, +(z + 0.5).toFixed(1)))}
+            disabled={zoom >= 4}
+            title="Zoom In"
+            aria-label="Zoom in"
+          >＋</button>
+          {zoom > 1 && (
+            <button
+              type="button"
+              className="tl__zoom-reset"
+              onClick={() => setZoom(1)}
+              title="Reset Zoom to 1x Fit"
+            >
+              Fit
+            </button>
+          )}
+        </div>
+      </div>
       <div className="tl__row tl__row--ruler">
         <div className="tl__gutter" aria-hidden="true" />
         <div className="tl__ruler tl__scrub" onPointerDown={onScrubDown} title="Drag to move the playhead">

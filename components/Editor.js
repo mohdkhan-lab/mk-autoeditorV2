@@ -9,7 +9,7 @@ import {
   CAPTION_STYLE_LIST, CAPTION_SIZES, captionAt, captionCueAt, drawCaption, captionFontPx, captionLineHeightDefault,
 } from "../lib/captions";
 import { EFFECTS, getPreDrawTransform, applyCanvasPostEffect } from "../lib/effects";
-import { playWhoosh, playSfx, TRANSITION_SFX_LIST } from "../lib/sfx";
+import { playWhoosh, playSfx, TRANSITION_SFX_LIST, getSmartSfxForClip } from "../lib/sfx";
 import { getBgmDuckedGain, extractVoiceSegments } from "../lib/bgm";
 import { drawWatermark } from "../lib/watermark";
 
@@ -19,6 +19,14 @@ function tc(t) {
   const s = Math.floor(t % 60);
   const d = Math.floor((t * 10) % 10);
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${d}`;
+}
+
+function fmtCueTime(sec) {
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  const ms = Math.floor((sec % 1) * 10);
+  return `${m}:${String(s).padStart(2, "0")}.${ms}`;
 }
 
 function clock(sec) {
@@ -47,15 +55,47 @@ export default function Editor({
   captionSize, setCaptionSize, captionLineHeight, setCaptionLineHeight,
   captionFontScale, setCaptionFontScale,
   captionName, captionError, onCaptionFile,
-  captionPos = "bottom", setCaptionPos,
+  captionPos = "bottom", setCaptionPos, setCaptionCues,
   bgmFile, setBgmFile, bgmVolume = 0.25, setBgmVolume, bgmDucking = true, setBgmDucking,
   transitionSfx = true, setTransitionSfx, transitionSfxVol = 0.3, setTransitionSfxVol,
   transitionSfxType = "whoosh", setTransitionSfxType,
+  transitionSfxMode = "smart", setTransitionSfxMode,
   watermarkFile, setWatermarkFile, watermarkPos = "bottom-right", setWatermarkPos,
   watermarkOpacity = 0.85, setWatermarkOpacity, watermarkScale = 0.15, setWatermarkScale,
 }) {
   const canvasRef = useRef(null);
+  const viewerFrameRef = useRef(null);
   const audioRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isEditingCaptions, setIsEditingCaptions] = useState(false);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = viewerFrameRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFs = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable)) return;
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleFullscreen]);
   const bgmAudioRef = useRef(null);
   const rafRef = useRef(0);
   const fileInputRef = useRef(null);
@@ -469,7 +509,7 @@ export default function Editor({
         }
       }
 
-      // Live Transition SFX trigger
+      // Live Transition SFX trigger (Smart Impact & Action Aware)
       if (transitionSfx && clips && clips.length > 1) {
         for (let i = 1; i < clips.length; i++) {
           const cutTime = clips[i].start;
@@ -477,8 +517,14 @@ export default function Editor({
           if (diff >= 0 && diff < 0.12) {
             if (lastWhooshCutRef.current !== i) {
               lastWhooshCutRef.current = i;
-              const actx = getAudioCtx();
-              if (actx) playSfx(actx, transitionSfxType || "whoosh", transitionSfxVol);
+              const clipName = clips[i].name;
+              const eff = (effectsByName && effectsByName[clipName]) || "none";
+              const tr = (transitionsByName && transitionsByName[clipName]) || "cut";
+              const soundId = getSmartSfxForClip(eff, tr, transitionSfxMode || "smart", transitionSfxType || "whoosh");
+              if (soundId) {
+                const actx = getAudioCtx();
+                if (actx) playSfx(actx, soundId, transitionSfxVol);
+              }
             }
             break;
           }
@@ -525,7 +571,7 @@ export default function Editor({
       a.removeEventListener("ended", onStop);
       cancelAnimationFrame(rafRef.current);
     };
-  }, [audioUrl, bgmUrl, voiceSegments, bgmDucking, bgmVolume, transitionSfx, transitionSfxVol, transitionSfxType, clips, getAudioCtx]);
+  }, [audioUrl, bgmUrl, voiceSegments, bgmDucking, bgmVolume, transitionSfx, transitionSfxVol, transitionSfxType, transitionSfxMode, effectsByName, transitionsByName, clips, getAudioCtx]);
 
   const toggle = useCallback(() => {
     const a = audioRef.current;
@@ -678,8 +724,17 @@ export default function Editor({
     <section className="editor">
       <div className="main">
         <div className="viewer">
-          <div className="viewer__frame">
+          <div className="viewer__frame" ref={viewerFrameRef}>
             <canvas ref={canvasRef} width={dims.width} height={dims.height} className="viewer__canvas" />
+            <button
+              type="button"
+              className="viewer__fs-corner"
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Exit Fullscreen (F / Esc)" : "Fullscreen Cinema Preview (F)"}
+              aria-label="Toggle Fullscreen"
+            >
+              {isFullscreen ? "✕" : "⛶"}
+            </button>
           </div>
 
           {/* Player Controls Bar — positioned below canvas so it never obstructs subtitles */}
@@ -731,6 +786,15 @@ export default function Editor({
                 title="Redo (Ctrl+Shift+Z)"
                 aria-label="Redo"
               >↻</button>
+              <button
+                type="button"
+                className={`hud-step ${isFullscreen ? "is-active" : ""}`}
+                onClick={toggleFullscreen}
+                title={isFullscreen ? "Exit Fullscreen (F / Esc)" : "Fullscreen Cinema Preview (F)"}
+                aria-label="Toggle Fullscreen"
+              >
+                {isFullscreen ? "🗗" : "⛶"}
+              </button>
               {active && (
                 <span className="hud-badge" title={active.name}>
                   {active.gap ? "Empty" : `Clip ${activeIndex}/${imageCount}`}
@@ -1129,6 +1193,28 @@ export default function Editor({
             </div>
             {transitionSfx && (
               <>
+                <div className="mini-h" style={{ marginTop: 10 }}>Trigger Mode</div>
+                <div className="seg">
+                  {[
+                    ["smart", "🧠 Smart Impact (Only Effects)"],
+                    ["all", "🔀 All Cuts"],
+                  ].map(([mId, mLbl]) => (
+                    <button
+                      key={mId}
+                      type="button"
+                      className={(transitionSfxMode || "smart") === mId ? "is-on" : ""}
+                      onClick={() => setTransitionSfxMode && setTransitionSfxMode(mId)}
+                    >
+                      {mLbl}
+                    </button>
+                  ))}
+                </div>
+                <p style={{ fontSize: 11, color: "var(--muted)", margin: "4px 0 8px" }}>
+                  {(transitionSfxMode || "smart") === "smart"
+                    ? "Normal image cuts remain silent. Plays impactful SFX on Action Effects (Shake/Pulse/Glitch) & Transitions."
+                    : "Plays selected sound on every scene cut."}
+                </p>
+
                 <div className="mini-h" style={{ marginTop: 10 }}>Sound Style</div>
                 <div className="sfx-chips">
                   {TRANSITION_SFX_LIST.map((sfx) => (
@@ -1248,9 +1334,48 @@ export default function Editor({
                   <span className="cap-meta">
                     <span className="cap-meta__name">{captionName || "captions"}</span>
                     {captionCues.length} lines ·{" "}
-                    <button type="button" className="cap-replace" onClick={() => capInputRef.current && capInputRef.current.click()}>replace</button>
+                    <button type="button" className="cap-replace" onClick={() => capInputRef.current && capInputRef.current.click()}>replace</button> ·{" "}
+                    <button
+                      type="button"
+                      className="cap-replace"
+                      style={{ color: "#fbbf24", fontWeight: 700 }}
+                      onClick={() => setIsEditingCaptions((v) => !v)}
+                    >
+                      {isEditingCaptions ? "✕ close editor" : "✏️ edit lines"}
+                    </button>
                   </span>
                 </div>
+
+                {isEditingCaptions && (
+                  <div className="cap-editor">
+                    <div className="cap-editor__header">
+                      <span className="mini-h" style={{ margin: 0, color: "#fbbf24" }}>Subtitle Line Editor ({captionCues.length} lines)</span>
+                      <button type="button" className="cap-replace" onClick={() => setIsEditingCaptions(false)}>Done</button>
+                    </div>
+                    <div className="cap-editor__list">
+                      {captionCues.map((cue, idx) => (
+                        <div key={idx} className="cap-editor__row">
+                          <span className="cap-editor__time">{fmtCueTime(cue.start)} - {fmtCueTime(cue.end)}</span>
+                          <input
+                            type="text"
+                            className="cap-editor__input"
+                            value={cue.text}
+                            onChange={(e) => {
+                              const newText = e.target.value;
+                              if (setCaptionCues) {
+                                setCaptionCues((prev) => {
+                                  const next = [...prev];
+                                  next[idx] = { ...next[idx], text: newText };
+                                  return next;
+                                });
+                              }
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="cap-body" aria-disabled={!captionsOn}>
                   <div className="mini-h">Style</div>

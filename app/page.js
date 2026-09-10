@@ -164,6 +164,7 @@ export default function Home() {
   const [transitionSfx, setTransitionSfx] = useState(true);
   const [transitionSfxVol, setTransitionSfxVol] = useState(0.5);
   const [transitionSfxType, setTransitionSfxType] = useState("whoosh");
+  const [transitionSfxMode, setTransitionSfxMode] = useState("smart");
   const [watermarkFile, setWatermarkFile] = useState(null);
   const [watermarkPos, setWatermarkPos] = useState("top-right");
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.8);
@@ -323,10 +324,12 @@ export default function Home() {
 
   // Read an uploaded transcript; parsing happens in a memo below so it re-syncs
   // if the audio length changes.
+  const [editedCues, setEditedCues] = useState(null);
   const onCaptionFile = useCallback(async (file) => {
     if (!file) return;
     try {
       const text = await file.text();
+      setEditedCues(null);
       setCaptionRaw(text);
       setCaptionName(file.name);
       setCaptionsOn(true);
@@ -336,7 +339,7 @@ export default function Home() {
     () => (captionRaw ? parseTranscript(captionRaw, audioDuration) : { cues: [], error: null }),
     [captionRaw, audioDuration]
   );
-  const captionCues = captionParse.cues;
+  const captionCues = editedCues || captionParse.cues;
   const captionError = captionParse.error;
 
   // On load, reconnect to a render that's still running on the server.
@@ -575,7 +578,8 @@ export default function Home() {
   // Serialize the edit state (no media bytes) for the projects store.
   const buildProjectData = useCallback(() => ({
     v: 1,
-    settings: { aspect, fps, renderQuality, transitionDuration, fadeIn, fadeOut, motionAmount, trimEnd },
+    settings: { aspect, fps, renderQuality, transitionDuration, fadeIn, fadeOut, motionAmount, trimEnd,
+                transitionSfx, transitionSfxVol, transitionSfxType, transitionSfxMode },
     maps: { motionByName, trimByName, volumeByName, fitByName, effectsByName, effectIntensityByName },
     captions: { captionRaw, captionName, captionsOn, captionStyle, captionSize, captionLineHeight, captionFontScale },
     transitionsByName,
@@ -588,6 +592,7 @@ export default function Home() {
     idCounter: idRef.current,
     built,
   }), [aspect, fps, renderQuality, transitionDuration, fadeIn, fadeOut, motionAmount, trimEnd,
+      transitionSfx, transitionSfxVol, transitionSfxType, transitionSfxMode,
       motionByName, trimByName, volumeByName, fitByName, effectsByName, effectIntensityByName,
       captionRaw, captionName, captionsOn, captionStyle, captionSize, captionLineHeight, captionFontScale,
       transitionsByName, slots, audioFile, built]);
@@ -618,6 +623,7 @@ export default function Home() {
     return () => clearTimeout(t);
   }, [view, currentProject, loadingProject, slots, transitionsByName, aspect, fps, renderQuality, transitionDuration,
       fadeIn, fadeOut, motionByName, motionAmount, effectsByName, effectIntensityByName, trimByName, volumeByName, fitByName, trimEnd,
+      transitionSfx, transitionSfxVol, transitionSfxType, transitionSfxMode,
       captionRaw, captionName, captionsOn, captionStyle, captionSize, captionLineHeight, captionFontScale,
       audioFile, built]);
 
@@ -663,6 +669,10 @@ export default function Home() {
       setTransitionDuration(st.transitionDuration ?? DEFAULT_TRANSITION_DURATION);
       setFadeIn(st.fadeIn ?? 0.5); setFadeOut(st.fadeOut ?? 0.6);
       setMotionAmount(st.motionAmount ?? 0.08); setTrimEnd(st.trimEnd ?? 0);
+      setTransitionSfx(st.transitionSfx ?? true);
+      setTransitionSfxVol(st.transitionSfxVol ?? 0.5);
+      setTransitionSfxType(st.transitionSfxType ?? "whoosh");
+      setTransitionSfxMode(st.transitionSfxMode ?? "smart");
       const mp = d.maps || {};
       setMotionByName(mp.motionByName || {}); setTrimByName(mp.trimByName || {});
       setVolumeByName(mp.volumeByName || {}); setFitByName(mp.fitByName || {});
@@ -862,7 +872,7 @@ export default function Home() {
           clips: exportClips, width: renderDims.width, height: renderDims.height, fps, bitrate, profile,
           transitions, transitionDuration, motions, motionAmount, audioFile,
           bgmFile, bgmVolume, bgmDucking,
-          transitionSfx, transitionSfxVol, transitionSfxType,
+          transitionSfx, transitionSfxVol, transitionSfxType, transitionSfxMode, effectsByName,
           watermarkImg, watermarkPos, watermarkOpacity, watermarkScale,
           videosByName, trims, speeds, volumes,
           cues: captionsOn && captionCues.length ? captionCues : null,
@@ -1161,6 +1171,8 @@ export default function Home() {
           transitionSfx={transitionSfx} setTransitionSfx={setTransitionSfx}
           transitionSfxVol={transitionSfxVol} setTransitionSfxVol={setTransitionSfxVol}
           transitionSfxType={transitionSfxType} setTransitionSfxType={setTransitionSfxType}
+          transitionSfxMode={transitionSfxMode} setTransitionSfxMode={setTransitionSfxMode}
+          setCaptionCues={setEditedCues}
           watermarkFile={watermarkFile} setWatermarkFile={setWatermarkFile}
           watermarkPos={watermarkPos} setWatermarkPos={setWatermarkPos}
           watermarkOpacity={watermarkOpacity} setWatermarkOpacity={setWatermarkOpacity}
