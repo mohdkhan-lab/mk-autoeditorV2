@@ -36,6 +36,7 @@ export default function Timeline({
   onSeek, onScrubStart, onScrubEnd, onOpen, onAdd, onResizeBoundary,
   trimEnd, onTrimChange, videoInfoByName = {}, fitByName = {},
   effectsByName = {},
+  bgmName, bgmVolume = 0.25, bgmDucking = true, onAddBgm, onRemoveBgm,
 }) {
   const trackRef = useRef(null);
   const downRef = useRef(null); // pointer-down position, to tell a clip tap from a drag
@@ -203,8 +204,9 @@ export default function Timeline({
 
       <div className="tl__row">
         <div className="tl__gutter">
-          <span className="tl__tag">V</span>
-          <span className="tl__tag tl__tag--audio">A</span>
+          <span className="tl__tag" title="Video Track 1">V1</span>
+          <span className="tl__tag tl__tag--audio" title="Voiceover Audio Track">A1</span>
+          <span className="tl__tag tl__tag--bgm" title="Background Music Track">A2</span>
         </div>
 
         <div className="tl__track" ref={trackRef}>
@@ -292,6 +294,31 @@ export default function Timeline({
 
           <div className="tl__lane tl__lane--audio tl__scrub" onPointerDown={onScrubDown}>
             <Waveform peaks={peaks} />
+          </div>
+
+          <div className="tl__lane tl__lane--bgm" title={bgmName ? `BGM: ${bgmName}` : "Click to add Background Music"}>
+            {bgmName ? (
+              <div className="bgm-track-fill">
+                <span className="bgm-track-title">🎵 {bgmName}</span>
+                <span className="bgm-track-vol">{Math.round(bgmVolume * 100)}%</span>
+                {bgmDucking && <span className="bgm-track-duck" title="Auto-ducks when voiceover speaks">⚡ Ducking</span>}
+                <button
+                  type="button"
+                  className="bgm-track-remove"
+                  onClick={(e) => { e.stopPropagation(); onRemoveBgm && onRemoveBgm(); }}
+                  title="Remove BGM"
+                >✕</button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="bgm-track-add"
+                onClick={() => onAddBgm && onAddBgm()}
+                title="Add background music (lo-fi, beats, ambient)"
+              >
+                <span>＋ Add Background Music (BGM)</span>
+              </button>
+            )}
           </div>
 
           <div className="tl__playhead" style={{ left: pct(time) }}>

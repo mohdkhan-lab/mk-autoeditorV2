@@ -6,9 +6,12 @@ import {
   MIN_TRANSITION_DURATION, MAX_TRANSITION_DURATION,
 } from "../lib/transitions";
 import {
-  CAPTION_STYLE_LIST, CAPTION_SIZES, captionAt, drawCaption, captionFontPx, captionLineHeightDefault,
+  CAPTION_STYLE_LIST, CAPTION_SIZES, captionAt, captionCueAt, drawCaption, captionFontPx, captionLineHeightDefault,
 } from "../lib/captions";
 import { EFFECTS, getPreDrawTransform, applyCanvasPostEffect } from "../lib/effects";
+import { playWhoosh } from "../lib/sfx";
+import { getBgmDuckedGain, extractVoiceSegments } from "../lib/bgm";
+import { drawWatermark } from "../lib/watermark";
 
 function tc(t) {
   if (!isFinite(t) || t < 0) t = 0;
@@ -44,13 +47,23 @@ export default function Editor({
   captionSize, setCaptionSize, captionLineHeight, setCaptionLineHeight,
   captionFontScale, setCaptionFontScale,
   captionName, captionError, onCaptionFile,
+  bgmFile, setBgmFile, bgmVolume = 0.25, setBgmVolume, bgmDucking = true, setBgmDucking,
+  transitionSfx = true, setTransitionSfx, transitionSfxVol = 0.3, setTransitionSfxVol,
+  watermarkFile, setWatermarkFile, watermarkPos = "bottom-right", setWatermarkPos,
+  watermarkOpacity = 0.85, setWatermarkOpacity, watermarkScale = 0.15, setWatermarkScale,
 }) {
   const canvasRef = useRef(null);
   const audioRef = useRef(null);
+  const bgmAudioRef = useRef(null);
   const rafRef = useRef(0);
   const fileInputRef = useRef(null);
   const capInputRef = useRef(null);
   const replaceInputRef = useRef(null);
+  const bgmInputRef = useRef(null);
+  const watermarkInputRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const lastWhooshCutRef = useRef(-1);
+  const watermarkImgRef = useRef(null);
   const pending = useRef(null); // gap-fill target name
   const trimEndRef = useRef(exportDuration);
   const vidRefs = useRef({});     // clip name -> offscreen <video> for live preview
@@ -174,6 +187,49 @@ export default function Editor({
     if (mode === "fit" && slotDur > 0 && dur > 0 && Math.abs(dur - slotDur) > 0.05) return { trimStart: 0, speed: dur / slotDur };
     return { trimStart: trimByName[name] || 0, speed: 1 };
   }, [videoInfoByName, fitByName, trimByName]);
+
+  const bgmUrl = useMemo(() => {
+    return bgmFile ? URL.createObjectURL(bgmFile) : null;
+  }, [bgmFile]);
+  useEffect(() => {
+    return () => { if (bgmUrl) URL.revokeObjectURL(bgmUrl); };
+  }, [bgmUrl]);
+
+  const watermarkUrl = useMemo(() => {
+    return watermarkFile ? URL.createObjectURL(watermarkFile) : null;
+  }, [watermarkFile]);
+  useEffect(() => {
+    return () => { if (watermarkUrl) URL.revokeObjectURL(watermarkUrl); };
+  }, [watermarkUrl]);
+
+  useEffect(() => {
+    if (!watermarkUrl) {
+      watermarkImgRef.current = null;
+      if (drawRef.current) drawRef.current(timeRef.current);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      watermarkImgRef.current = img;
+      if (drawRef.current) drawRef.current(timeRef.current);
+    };
+    img.src = watermarkUrl;
+  }, [watermarkUrl]);
+
+  const voiceSegments = useMemo(() => {
+    return extractVoiceSegments(clips, exportDuration);
+  }, [clips, exportDuration]);
+
+  const getAudioCtx = useCallback(() => {
+    if (!audioCtxRef.current && typeof window !== "undefined") {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) audioCtxRef.current = new AudioCtx();
+    }
+    if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+      audioCtxRef.current.resume();
+    }
+    return audioCtxRef.current;
+  }, []);
 
   const draw = useCallback((t) => {
     try {
@@ -307,8 +363,14 @@ export default function Editor({
 
     // Captions burn in before the fades, so the fade dims them too.
     if (captionsOn && captionCues && captionCues.length) {
-      const txt = captionAt(captionCues, t);
-      if (txt) drawCaption(ctx, txt, W, H, captionStyle, captionFontPx(H, captionSize, captionFontScale), captionLineHeight);
+      const cue = captionCueAt ? captionCueAt(captionCues, t) : null;
+      const txt = cue ? cue.text : captionAt(captionCues, t);
+      if (txt) drawCaption(ctx, txt, W, H, captionStyle, captionFontPx(H, captionSize, captionFontScale), captionLineHeight, cue, t);
+    }
+
+    // Watermark / channel logo overlay (burned in under fades)
+    if (watermarkImgRef.current && watermarkImgRef.current.complete) {
+      drawWatermark(ctx, watermarkImgRef.current, W, H, watermarkPos, watermarkOpacity, watermarkScale);
     }
 
     // Scene fades (opening / ending).
@@ -327,7 +389,8 @@ export default function Editor({
   }, [clips, imageEls, transitionsByName, transitionDuration, motionByName, motionAmount,
       effectsByName, effectIntensityByName,
       fadeIn, fadeOut, duration, exportDuration, playing, videoInfoByName, videoParams, volumeByName,
-      captionsOn, captionCues, captionStyle, captionSize, captionLineHeight, captionFontScale]);
+      captionsOn, captionCues, captionStyle, captionSize, captionLineHeight, captionFontScale,
+      watermarkPos, watermarkOpacity, watermarkScale]);
 
   useEffect(() => { drawRef.current = draw; }, [draw]);
   useEffect(() => { timeRef.current = time; }, [time]);
@@ -358,6 +421,33 @@ export default function Editor({
       }
       const ct = a.currentTime;
       timeRef.current = ct;
+
+      // Live BGM auto-ducking & loop sync
+      const bgm = bgmAudioRef.current;
+      if (bgm && bgmUrl) {
+        const duckedVol = getBgmDuckedGain(ct, voiceSegments, bgmDucking, bgmVolume);
+        bgm.volume = Math.max(0, Math.min(1, duckedVol));
+        if (bgm.duration && Math.abs(bgm.currentTime - (ct % bgm.duration)) > 0.35) {
+          try { bgm.currentTime = ct % bgm.duration; } catch (_) {}
+        }
+      }
+
+      // Live Transition Whoosh SFX trigger
+      if (transitionSfx && clips && clips.length > 1) {
+        for (let i = 1; i < clips.length; i++) {
+          const cutTime = clips[i].start;
+          const diff = ct - cutTime;
+          if (diff >= 0 && diff < 0.12) {
+            if (lastWhooshCutRef.current !== i) {
+              lastWhooshCutRef.current = i;
+              const actx = getAudioCtx();
+              if (actx) playWhoosh(actx, transitionSfxVol);
+            }
+            break;
+          }
+        }
+      }
+
       if (drawRef.current) drawRef.current(ct);
       setTime(ct);
       rafRef.current = requestAnimationFrame(loop);
@@ -365,12 +455,22 @@ export default function Editor({
     const onPlay = () => {
       setPlaying(true);
       playingRef.current = true;
+      const bgm = bgmAudioRef.current;
+      if (bgm && bgmUrl) {
+        try {
+          if (bgm.duration) bgm.currentTime = a.currentTime % bgm.duration;
+          bgm.play().catch(() => {});
+        } catch (_) {}
+      }
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(loop);
     };
     const onStop = () => {
       setPlaying(false);
       playingRef.current = false;
+      const bgm = bgmAudioRef.current;
+      if (bgm) { try { bgm.pause(); } catch (_) {} }
+      lastWhooshCutRef.current = -1;
       cancelAnimationFrame(rafRef.current);
       setTime(a.currentTime);
       timeRef.current = a.currentTime;
@@ -388,7 +488,7 @@ export default function Editor({
       a.removeEventListener("ended", onStop);
       cancelAnimationFrame(rafRef.current);
     };
-  }, [audioUrl]);
+  }, [audioUrl, bgmUrl, voiceSegments, bgmDucking, bgmVolume, transitionSfx, transitionSfxVol, clips, getAudioCtx]);
 
   const toggle = useCallback(() => {
     const a = audioRef.current;
@@ -410,9 +510,16 @@ export default function Editor({
     if (!a) return;
     const c = Math.min(Math.max(t, 0), duration || t || 0);
     setTime(c);
+    const bgm = bgmAudioRef.current;
+    if (bgm && bgmUrl) {
+      try {
+        if (bgm.duration) bgm.currentTime = c % bgm.duration;
+      } catch (_) {}
+    }
+    lastWhooshCutRef.current = -1;
     if (a.seeking) pendingSeekRef.current = c;
     else { pendingSeekRef.current = null; try { a.currentTime = c; } catch (_) {} }
-  }, [duration]);
+  }, [duration, bgmUrl]);
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -596,6 +703,7 @@ export default function Editor({
           </div>
 
           <audio ref={audioRef} src={audioUrl} hidden />
+          <audio ref={bgmAudioRef} src={bgmUrl || undefined} loop hidden />
         </div>
 
         {(() => {
@@ -603,21 +711,13 @@ export default function Editor({
           if (!shown.length) return null;
           return (
             <div className="notes notes--compact">
-              {shown.length > 1 && (
-                <button
-                  type="button" className="notes__clear"
-                  onClick={() => setDismissedWarn(new Set(warnings))}
-                >Dismiss all ({shown.length})</button>
-              )}
-              {shown.map((w) => (
-                <div className="note note--dismissable" key={w}>
+              {shown.map((w, i) => (
+                <div className="note note--dismissable" key={i}>
                   <span>{w}</span>
-                  <button
-                    type="button" className="note__x" aria-label="Dismiss"
-                    onClick={() => setDismissedWarn((prev) => new Set(prev).add(w))}
-                  >✕</button>
+                  <button className="note__x" onClick={() => setDismissedWarn((p) => new Set([...p, w]))}>✕</button>
                 </div>
               ))}
+              <button className="notes__clear" onClick={() => setDismissedWarn((p) => new Set([...p, ...shown]))}>Clear warnings</button>
             </div>
           );
         })()}
@@ -645,6 +745,11 @@ export default function Editor({
           videoInfoByName={videoInfoByName}
           fitByName={fitByName}
           effectsByName={effectsByName}
+          bgmName={bgmFile ? bgmFile.name : null}
+          bgmVolume={bgmVolume}
+          bgmDucking={bgmDucking}
+          onAddBgm={() => bgmInputRef.current && bgmInputRef.current.click()}
+          onRemoveBgm={() => setBgmFile && setBgmFile(null)}
         />
       </div>
 
@@ -677,6 +782,20 @@ export default function Editor({
             onClick={() => setSidebarTab("captions")}
           >
             💬 Captions
+          </button>
+          <button
+            type="button"
+            className={`sidetab ${sidebarTab === "audio" ? "is-active" : ""}`}
+            onClick={() => setSidebarTab("audio")}
+          >
+            🎵 Audio
+          </button>
+          <button
+            type="button"
+            className={`sidetab ${sidebarTab === "watermark" ? "is-active" : ""}`}
+            onClick={() => setSidebarTab("watermark")}
+          >
+            🏷️ Logo
           </button>
           <button
             type="button"
@@ -925,6 +1044,33 @@ export default function Editor({
                 </button>
               </div>
             )}
+
+            <div className="mini-h" style={{ marginTop: 14 }}>Auto Transition SFX</div>
+            <div className="cap-bar">
+              <button
+                type="button"
+                className={`cap-switch ${transitionSfx ? "is-on" : ""}`}
+                onClick={() => setTransitionSfx && setTransitionSfx(!transitionSfx)}
+                aria-pressed={transitionSfx}
+              >
+                <span className="cap-switch__box" />
+                {transitionSfx ? "On" : "Off"}
+              </button>
+              <span className="cap-meta">
+                💨 Whoosh sound effect on scene cuts
+              </span>
+            </div>
+            {transitionSfx && (
+              <label className="trdur" style={{ marginTop: 8 }}>
+                <span>SFX Volume</span>
+                <input
+                  type="range" min={0.05} max={1} step={0.05}
+                  value={transitionSfxVol}
+                  onChange={(e) => setTransitionSfxVol && setTransitionSfxVol(+e.target.value)}
+                />
+                <span className="trdur__val">{Math.round(transitionSfxVol * 100)}%</span>
+              </label>
+            )}
           </div>
         )}
 
@@ -1067,6 +1213,178 @@ export default function Editor({
           </div>
         )}
 
+        {(sidebarTab === "audio" || sidebarTab === "all") && (
+          <div className="panel audio-panel">
+            <h2 className="panel__h">Audio &amp; Background Music</h2>
+            <div className="mini-h">A2 Background Music track with intelligent auto-ducking.</div>
+
+            {!bgmFile ? (
+              <div className="cap-empty" style={{ marginTop: 10 }}>
+                <button
+                  type="button"
+                  className="cap-upload"
+                  onClick={() => bgmInputRef.current && bgmInputRef.current.click()}
+                >
+                  <span className="cap-upload__i">🎵</span> Upload Background Music
+                </button>
+                <p className="cap-hint">
+                  Add an MP3 or WAV to play softly behind your voiceover. When auto-ducking is turned on, the music drops automatically during narration.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="cap-bar" style={{ marginTop: 10 }}>
+                  <span className="cap-meta" style={{ flex: 1 }}>
+                    <strong style={{ color: "#fff", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {bgmFile.name}
+                    </strong>
+                    <span>A2 Music Track</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="cap-replace"
+                    onClick={() => bgmInputRef.current && bgmInputRef.current.click()}
+                    style={{ marginRight: 8 }}
+                  >
+                    replace
+                  </button>
+                  <button
+                    type="button"
+                    className="cap-replace"
+                    style={{ color: "#ef4444" }}
+                    onClick={() => setBgmFile && setBgmFile(null)}
+                  >
+                    remove
+                  </button>
+                </div>
+
+                <div className="mini-h" style={{ marginTop: 14 }}>Music Volume</div>
+                <label className="trdur">
+                  <input
+                    type="range" min={0.05} max={1} step={0.05}
+                    value={bgmVolume}
+                    onChange={(e) => setBgmVolume && setBgmVolume(+e.target.value)}
+                  />
+                  <span className="trdur__val">{Math.round(bgmVolume * 100)}%</span>
+                </label>
+
+                <div className="mini-h" style={{ marginTop: 14 }}>Auto-Ducking</div>
+                <div className="cap-bar">
+                  <button
+                    type="button"
+                    className={`cap-switch ${bgmDucking ? "is-on" : ""}`}
+                    onClick={() => setBgmDucking && setBgmDucking(!bgmDucking)}
+                    aria-pressed={bgmDucking}
+                  >
+                    <span className="cap-switch__box" />
+                    {bgmDucking ? "On" : "Off"}
+                  </button>
+                  <span className="cap-meta">
+                    Lowers music volume by 85% during voiceover so speech remains crisp and clear.
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {(sidebarTab === "watermark" || sidebarTab === "all") && (
+          <div className="panel watermark-panel">
+            <h2 className="panel__h">Watermark &amp; Logo</h2>
+            <div className="mini-h">Burn your channel branding or watermark onto the video.</div>
+
+            {!watermarkFile ? (
+              <div className="cap-empty" style={{ marginTop: 10 }}>
+                <button
+                  type="button"
+                  className="cap-upload"
+                  onClick={() => watermarkInputRef.current && watermarkInputRef.current.click()}
+                >
+                  <span className="cap-upload__i">🏷️</span> Upload Logo / Watermark
+                </button>
+                <p className="cap-hint">
+                  Upload a transparent PNG or JPG logo. It will be overlaid across your entire video at your chosen corner and opacity.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="cap-bar" style={{ marginTop: 10 }}>
+                  <span className="cap-meta" style={{ flex: 1 }}>
+                    <strong style={{ color: "#fff", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {watermarkFile.name}
+                    </strong>
+                    <span>Logo Overlay</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="cap-replace"
+                    onClick={() => watermarkInputRef.current && watermarkInputRef.current.click()}
+                    style={{ marginRight: 8 }}
+                  >
+                    replace
+                  </button>
+                  <button
+                    type="button"
+                    className="cap-replace"
+                    style={{ color: "#ef4444" }}
+                    onClick={() => setWatermarkFile && setWatermarkFile(null)}
+                  >
+                    remove
+                  </button>
+                </div>
+
+                <div className="mini-h" style={{ marginTop: 14 }}>Position</div>
+                <div className="pos-grid">
+                  {[
+                    { id: "top-left", label: "↖ Top Left" },
+                    { id: "top-right", label: "↗ Top Right" },
+                    { id: "bottom-left", label: "↙ Bottom Left" },
+                    { id: "bottom-right", label: "↘ Bottom Right" },
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`pos-btn ${watermarkPos === p.id ? "is-active" : ""}`}
+                      onClick={() => {
+                        setWatermarkPos && setWatermarkPos(p.id);
+                        if (drawRef.current) drawRef.current(timeRef.current);
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mini-h" style={{ marginTop: 14 }}>Opacity</div>
+                <label className="trdur">
+                  <input
+                    type="range" min={0.1} max={1} step={0.05}
+                    value={watermarkOpacity}
+                    onChange={(e) => {
+                      setWatermarkOpacity && setWatermarkOpacity(+e.target.value);
+                      if (drawRef.current) drawRef.current(timeRef.current);
+                    }}
+                  />
+                  <span className="trdur__val">{Math.round(watermarkOpacity * 100)}%</span>
+                </label>
+
+                <div className="mini-h" style={{ marginTop: 14 }}>Scale Size</div>
+                <label className="trdur">
+                  <input
+                    type="range" min={0.05} max={0.4} step={0.01}
+                    value={watermarkScale}
+                    onChange={(e) => {
+                      setWatermarkScale && setWatermarkScale(+e.target.value);
+                      if (drawRef.current) drawRef.current(timeRef.current);
+                    }}
+                  />
+                  <span className="trdur__val">{Math.round(watermarkScale * 100)}%</span>
+                </label>
+              </>
+            )}
+          </div>
+        )}
+
       </aside>
 
       <input
@@ -1080,6 +1398,22 @@ export default function Editor({
       <input
         ref={capInputRef} type="file" accept=".srt,.vtt,.txt,text/plain" hidden
         onChange={onPickCaption}
+      />
+      <input
+        ref={bgmInputRef} type="file" accept="audio/*" hidden
+        onChange={(e) => {
+          const file = e.target.files && e.target.files[0];
+          if (file && setBgmFile) setBgmFile(file);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={watermarkInputRef} type="file" accept="image/*" hidden
+        onChange={(e) => {
+          const file = e.target.files && e.target.files[0];
+          if (file && setWatermarkFile) setWatermarkFile(file);
+          e.target.value = "";
+        }}
       />
 
       {inspect && (() => {

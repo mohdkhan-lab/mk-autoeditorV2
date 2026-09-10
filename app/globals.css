@@ -1287,3 +1287,69 @@ button:focus-visible, .dz:focus-visible, a:focus-visible {
 .unsupported__p:last-child { margin-bottom: 0; }
 .unsupported__p b { color: var(--text); font-weight: 700; }
 .unsupported__brand { color: var(--text); font-weight: 700; }
+
+/* ---------- A2 Background Music Timeline Track ---------- */
+.tl__lane--bgm { height: 32px; margin-top: 5px; position: relative; border-radius: 8px; background: var(--panel-2); overflow: hidden; }
+.tl__tag--bgm {
+  height: 32px; width: 24px; display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  color: #38bdf8; background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px;
+  letter-spacing: 0.04em;
+}
+
+.bgm-track-fill {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 12px;
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.16), rgba(99, 102, 241, 0.16));
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 6px;
+  color: #e0f2fe; font-size: 11.5px;
+}
+.bgm-track-info { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); }
+.bgm-track-name { font-weight: 700; color: #fff; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bgm-track-vol { color: #38bdf8; }
+.bgm-track-duck {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);
+  padding: 1px 5px; border-radius: 4px;
+}
+.bgm-track-x {
+  background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 14px;
+  padding: 2px 6px; border-radius: 4px; line-height: 1;
+}
+.bgm-track-x:hover { color: #ef4444; background: rgba(239, 68, 68, 0.15); }
+
+.bgm-track-add {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1.5px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #94a3b8; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all .15s ease;
+}
+.bgm-track-add:hover {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+/* ---------- Watermark Position Grid ---------- */
+.pos-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;
+}
+.pos-btn {
+  font: inherit; font-size: 12px; font-weight: 500;
+  padding: 8px 10px; border-radius: 8px;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); cursor: pointer;
+  transition: all .12s ease; text-align: center;
+}
+.pos-btn:hover { border-color: var(--accent); }
+.pos-btn.is-active {
+  border-color: var(--accent); background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24; font-weight: 700;
+}
+
