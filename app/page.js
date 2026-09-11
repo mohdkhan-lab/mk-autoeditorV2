@@ -872,7 +872,7 @@ export default function Home() {
           clips: exportClips, width: renderDims.width, height: renderDims.height, fps, bitrate, profile,
           transitions, transitionDuration, motions, motionAmount, audioFile,
           bgmFile, bgmVolume, bgmDucking,
-          transitionSfx, transitionSfxVol, transitionSfxType, transitionSfxMode, effectsByName,
+          transitionSfx, transitionSfxVol, transitionSfxType, transitionSfxMode, effectsByName, effectIntensityByName,
           watermarkImg, watermarkPos, watermarkOpacity, watermarkScale,
           videosByName, trims, speeds, volumes,
           cues: captionsOn && captionCues.length ? captionCues : null,
