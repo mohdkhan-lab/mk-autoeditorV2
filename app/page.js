@@ -167,8 +167,15 @@ export default function Home() {
   const [transitionSfxMode, setTransitionSfxMode] = useState("smart");
   const [watermarkFile, setWatermarkFile] = useState(null);
   const [watermarkPos, setWatermarkPos] = useState("top-right");
-  const [watermarkOpacity, setWatermarkOpacity] = useState(0.8);
+  const [watermarkOpacity, setWatermarkOpacity] = useState(0.85);
   const [watermarkScale, setWatermarkScale] = useState(0.12);
+  const [watermarkText, setWatermarkText] = useState("");
+  const [watermarkIsCircle, setWatermarkIsCircle] = useState(false);
+  const [watermarkShadow, setWatermarkShadow] = useState(true);
+  const [watermarkMargin, setWatermarkMargin] = useState(24);
+  const [watermarkFadeIn, setWatermarkFadeIn] = useState(false);
+  const [watermarkTextColor, setWatermarkTextColor] = useState("#ffffff");
+  const [watermarkTextBg, setWatermarkTextBg] = useState(true);
   const [importing, setImporting] = useState(null);   // { done, total } while decoding imports
   const [built, setBuilt] = useState(false);          // committed images to the timeline?
   const [busy, setBusy] = useState(false);
@@ -874,6 +881,7 @@ export default function Home() {
           bgmFile, bgmVolume, bgmDucking,
           transitionSfx, transitionSfxVol, transitionSfxType, transitionSfxMode, effectsByName, effectIntensityByName,
           watermarkImg, watermarkPos, watermarkOpacity, watermarkScale,
+          watermarkText, watermarkIsCircle, watermarkShadow, watermarkMargin, watermarkFadeIn, watermarkTextColor, watermarkTextBg,
           videosByName, trims, speeds, volumes,
           cues: captionsOn && captionCues.length ? captionCues : null,
           captionStyle, captionSize, captionLineHeight, captionFontScale, captionPos,
@@ -1177,6 +1185,13 @@ export default function Home() {
           watermarkPos={watermarkPos} setWatermarkPos={setWatermarkPos}
           watermarkOpacity={watermarkOpacity} setWatermarkOpacity={setWatermarkOpacity}
           watermarkScale={watermarkScale} setWatermarkScale={setWatermarkScale}
+          watermarkText={watermarkText} setWatermarkText={setWatermarkText}
+          watermarkIsCircle={watermarkIsCircle} setWatermarkIsCircle={setWatermarkIsCircle}
+          watermarkShadow={watermarkShadow} setWatermarkShadow={setWatermarkShadow}
+          watermarkMargin={watermarkMargin} setWatermarkMargin={setWatermarkMargin}
+          watermarkFadeIn={watermarkFadeIn} setWatermarkFadeIn={setWatermarkFadeIn}
+          watermarkTextColor={watermarkTextColor} setWatermarkTextColor={setWatermarkTextColor}
+          watermarkTextBg={watermarkTextBg} setWatermarkTextBg={setWatermarkTextBg}
         />
       )}
       </div>

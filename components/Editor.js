@@ -62,6 +62,13 @@ export default function Editor({
   transitionSfxMode = "smart", setTransitionSfxMode,
   watermarkFile, setWatermarkFile, watermarkPos = "bottom-right", setWatermarkPos,
   watermarkOpacity = 0.85, setWatermarkOpacity, watermarkScale = 0.15, setWatermarkScale,
+  watermarkText = "", setWatermarkText,
+  watermarkIsCircle = false, setWatermarkIsCircle,
+  watermarkShadow = true, setWatermarkShadow,
+  watermarkMargin = 24, setWatermarkMargin,
+  watermarkFadeIn = false, setWatermarkFadeIn,
+  watermarkTextColor = "#ffffff", setWatermarkTextColor,
+  watermarkTextBg = true, setWatermarkTextBg,
 }) {
   const canvasRef = useRef(null);
   const viewerFrameRef = useRef(null);
@@ -446,8 +453,20 @@ export default function Editor({
     }
 
     // Watermark / channel logo overlay (burned in under fades)
-    if (watermarkImgRef.current && watermarkImgRef.current.complete) {
-      drawWatermark(ctx, watermarkImgRef.current, W, H, watermarkPos, watermarkOpacity, watermarkScale);
+    if ((watermarkImgRef.current && watermarkImgRef.current.complete) || (watermarkText && watermarkText.trim())) {
+      drawWatermark(ctx, watermarkImgRef.current, W, H, {
+        pos: watermarkPos,
+        opacity: watermarkOpacity,
+        scale: watermarkScale,
+        isCircle: watermarkIsCircle,
+        shadow: watermarkShadow,
+        margin: watermarkMargin,
+        text: watermarkText,
+        textColor: watermarkTextColor,
+        textBg: watermarkTextBg,
+        fadeIn: watermarkFadeIn,
+        time: t,
+      });
     }
 
     // Scene fades (opening / ending).
@@ -467,7 +486,8 @@ export default function Editor({
       effectsByName, effectIntensityByName,
       fadeIn, fadeOut, duration, exportDuration, playing, videoInfoByName, videoParams, volumeByName,
       captionsOn, captionCues, captionStyle, captionSize, captionLineHeight, captionFontScale, captionPos,
-      watermarkPos, watermarkOpacity, watermarkScale]);
+      watermarkPos, watermarkOpacity, watermarkScale,
+      watermarkText, watermarkIsCircle, watermarkShadow, watermarkMargin, watermarkFadeIn, watermarkTextColor, watermarkTextBg]);
 
   useEffect(() => { drawRef.current = draw; }, [draw]);
   useEffect(() => { timeRef.current = time; }, [time]);
@@ -1540,25 +1560,27 @@ export default function Editor({
 
         {(sidebarTab === "watermark" || sidebarTab === "all") && (
           <div className="panel watermark-panel">
-            <h2 className="panel__h">Watermark &amp; Logo</h2>
-            <div className="mini-h">Burn your channel branding or watermark onto the video.</div>
+            <h2 className="panel__h">Watermark &amp; Branding</h2>
+            <div className="mini-h">Overlay logo, channel handle (@name), and watermark protection.</div>
 
+            {/* 1. Logo Image Section */}
+            <div className="mini-h" style={{ marginTop: 12 }}>Logo Image</div>
             {!watermarkFile ? (
-              <div className="cap-empty" style={{ marginTop: 10 }}>
+              <div className="cap-empty" style={{ marginTop: 6 }}>
                 <button
                   type="button"
                   className="cap-upload"
                   onClick={() => watermarkInputRef.current && watermarkInputRef.current.click()}
                 >
-                  <span className="cap-upload__i">🏷️</span> Upload Logo / Watermark
+                  <span className="cap-upload__i">🏷️</span> Upload Logo Image
                 </button>
                 <p className="cap-hint">
-                  Upload a transparent PNG or JPG logo. It will be overlaid across your entire video at your chosen corner and opacity.
+                  Upload a transparent PNG or JPG logo. You can also use a pure Text Handle below without an image.
                 </p>
               </div>
             ) : (
-              <>
-                <div className="cap-bar" style={{ marginTop: 10 }}>
+              <div style={{ marginTop: 6 }}>
+                <div className="cap-bar">
                   <span className="cap-meta" style={{ flex: 1 }}>
                     <strong style={{ color: "#fff", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {watermarkFile.name}
@@ -1577,61 +1599,172 @@ export default function Editor({
                     type="button"
                     className="cap-replace"
                     style={{ color: "#ef4444" }}
-                    onClick={() => setWatermarkFile && setWatermarkFile(null)}
+                    onClick={() => {
+                      if (setWatermarkFile) setWatermarkFile(null);
+                      if (drawRef.current) drawRef.current(timeRef.current);
+                    }}
                   >
                     remove
                   </button>
                 </div>
 
-                <div className="mini-h" style={{ marginTop: 14 }}>Position</div>
-                <div className="pos-grid">
+                {/* Circle Avatar Crop Toggle */}
+                <button
+                  type="button"
+                  className={`wm-toggle-btn ${watermarkIsCircle ? "is-active" : ""}`}
+                  onClick={() => {
+                    if (setWatermarkIsCircle) setWatermarkIsCircle(!watermarkIsCircle);
+                    if (drawRef.current) drawRef.current(timeRef.current);
+                  }}
+                >
+                  <span>⭕ Circle Avatar Crop &amp; Border</span>
+                  <span className="wm-toggle-badge">{watermarkIsCircle ? "ON" : "OFF"}</span>
+                </button>
+              </div>
+            )}
+
+            {/* 2. Text Handle (@channel) Section */}
+            <div className="mini-h" style={{ marginTop: 14 }}>Text Handle (@channel / Creator)</div>
+            <input
+              type="text"
+              className="wm-input"
+              placeholder="e.g. @MohdKhanEdits or MyChannel"
+              value={watermarkText}
+              onChange={(e) => {
+                if (setWatermarkText) setWatermarkText(e.target.value);
+                if (drawRef.current) drawRef.current(timeRef.current);
+              }}
+            />
+
+            {watermarkText.trim() && (
+              <>
+                <button
+                  type="button"
+                  className={`wm-toggle-btn ${watermarkTextBg ? "is-active" : ""}`}
+                  onClick={() => {
+                    if (setWatermarkTextBg) setWatermarkTextBg(!watermarkTextBg);
+                    if (drawRef.current) drawRef.current(timeRef.current);
+                  }}
+                >
+                  <span>🏷️ Glass Badge Pill Background</span>
+                  <span className="wm-toggle-badge">{watermarkTextBg ? "ON" : "OFF"}</span>
+                </button>
+
+                <div className="wm-color-row">
+                  <span style={{ fontSize: 11, color: "var(--text-dim)", marginRight: 4 }}>Color:</span>
                   {[
-                    { id: "top-left", label: "↖ Top Left" },
-                    { id: "top-right", label: "↗ Top Right" },
-                    { id: "bottom-left", label: "↙ Bottom Left" },
-                    { id: "bottom-right", label: "↘ Bottom Right" },
-                  ].map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className={`pos-btn ${watermarkPos === p.id ? "is-active" : ""}`}
+                    { hex: "#ffffff", name: "White" },
+                    { hex: "#fbbf24", name: "Gold" },
+                    { hex: "#00f2fe", name: "Cyan" },
+                    { hex: "#22c55e", name: "Neon Green" },
+                    { hex: "#ff3b30", name: "Fire Red" },
+                  ].map((c) => (
+                    <div
+                      key={c.hex}
+                      className={`wm-color-dot ${watermarkTextColor === c.hex ? "is-active" : ""}`}
+                      style={{ background: c.hex }}
+                      title={c.name}
                       onClick={() => {
-                        setWatermarkPos && setWatermarkPos(p.id);
+                        if (setWatermarkTextColor) setWatermarkTextColor(c.hex);
                         if (drawRef.current) drawRef.current(timeRef.current);
                       }}
-                    >
-                      {p.label}
-                    </button>
+                    />
                   ))}
                 </div>
-
-                <div className="mini-h" style={{ marginTop: 14 }}>Opacity</div>
-                <label className="trdur">
-                  <input
-                    type="range" min={0.1} max={1} step={0.05}
-                    value={watermarkOpacity}
-                    onChange={(e) => {
-                      setWatermarkOpacity && setWatermarkOpacity(+e.target.value);
-                      if (drawRef.current) drawRef.current(timeRef.current);
-                    }}
-                  />
-                  <span className="trdur__val">{Math.round(watermarkOpacity * 100)}%</span>
-                </label>
-
-                <div className="mini-h" style={{ marginTop: 14 }}>Scale Size</div>
-                <label className="trdur">
-                  <input
-                    type="range" min={0.05} max={0.4} step={0.01}
-                    value={watermarkScale}
-                    onChange={(e) => {
-                      setWatermarkScale && setWatermarkScale(+e.target.value);
-                      if (drawRef.current) drawRef.current(timeRef.current);
-                    }}
-                  />
-                  <span className="trdur__val">{Math.round(watermarkScale * 100)}%</span>
-                </label>
               </>
             )}
+
+            {/* 3. Protection & Animation */}
+            <div className="mini-h" style={{ marginTop: 14 }}>Effects &amp; Protection</div>
+            <button
+              type="button"
+              className={`wm-toggle-btn ${watermarkShadow ? "is-active" : ""}`}
+              onClick={() => {
+                if (setWatermarkShadow) setWatermarkShadow(!watermarkShadow);
+                if (drawRef.current) drawRef.current(timeRef.current);
+              }}
+            >
+              <span>✨ Drop Shadow Protection (Legible on Bright BG)</span>
+              <span className="wm-toggle-badge">{watermarkShadow ? "ON" : "OFF"}</span>
+            </button>
+
+            <button
+              type="button"
+              className={`wm-toggle-btn ${watermarkFadeIn ? "is-active" : ""}`}
+              onClick={() => {
+                if (setWatermarkFadeIn) setWatermarkFadeIn(!watermarkFadeIn);
+                if (drawRef.current) drawRef.current(timeRef.current);
+              }}
+            >
+              <span>🎬 Smooth 0.8s Intro Fade-In Reveal</span>
+              <span className="wm-toggle-badge">{watermarkFadeIn ? "ON" : "OFF"}</span>
+            </button>
+
+            {/* 4. Position Grid (7 Alignment Options) */}
+            <div className="mini-h" style={{ marginTop: 14 }}>Position (7 Screen Alignments)</div>
+            <div className="pos-grid">
+              {[
+                { id: "top-left", label: "↖ Top Left" },
+                { id: "top-center", label: "↑ Top Center" },
+                { id: "top-right", label: "↗ Top Right" },
+                { id: "center", label: "⏺ Center (Copyright)", span3: true },
+                { id: "bottom-left", label: "↙ Bottom Left" },
+                { id: "bottom-center", label: "↓ Bottom Center" },
+                { id: "bottom-right", label: "↘ Bottom Right" },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`pos-btn ${p.span3 ? "pos-btn--span3" : ""} ${watermarkPos === p.id ? "is-active" : ""}`}
+                  onClick={() => {
+                    if (setWatermarkPos) setWatermarkPos(p.id);
+                    if (drawRef.current) drawRef.current(timeRef.current);
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* 5. Margin & Size Sliders */}
+            <div className="mini-h" style={{ marginTop: 14 }}>Margin from Screen Edge</div>
+            <label className="trdur">
+              <input
+                type="range" min={8} max={70} step={2}
+                value={watermarkMargin}
+                onChange={(e) => {
+                  if (setWatermarkMargin) setWatermarkMargin(+e.target.value);
+                  if (drawRef.current) drawRef.current(timeRef.current);
+                }}
+              />
+              <span className="trdur__val">{watermarkMargin}px</span>
+            </label>
+
+            <div className="mini-h" style={{ marginTop: 12 }}>Opacity</div>
+            <label className="trdur">
+              <input
+                type="range" min={0.1} max={1} step={0.05}
+                value={watermarkOpacity}
+                onChange={(e) => {
+                  if (setWatermarkOpacity) setWatermarkOpacity(+e.target.value);
+                  if (drawRef.current) drawRef.current(timeRef.current);
+                }}
+              />
+              <span className="trdur__val">{Math.round(watermarkOpacity * 100)}%</span>
+            </label>
+
+            <div className="mini-h" style={{ marginTop: 12 }}>Scale Size</div>
+            <label className="trdur">
+              <input
+                type="range" min={0.05} max={0.4} step={0.01}
+                value={watermarkScale}
+                onChange={(e) => {
+                  if (setWatermarkScale) setWatermarkScale(+e.target.value);
+                  if (drawRef.current) drawRef.current(timeRef.current);
+                }}
+              />
+              <span className="trdur__val">{Math.round(watermarkScale * 100)}%</span>
+            </label>
           </div>
         )}
 
