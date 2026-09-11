@@ -6,7 +6,7 @@ import {
   MIN_TRANSITION_DURATION, MAX_TRANSITION_DURATION,
 } from "../lib/transitions";
 import {
-  CAPTION_STYLE_LIST, CAPTION_SIZES, captionAt, captionCueAt, drawCaption, captionFontPx, captionLineHeightDefault,
+  CAPTION_STYLE_LIST, CAPTION_SIZES, captionAt, captionCueAt, drawCaption, captionFontPx, captionLineHeightDefault, POPULAR_FONTS,
 } from "../lib/captions";
 import { EFFECTS, getPreDrawTransform, applyCanvasPostEffect } from "../lib/effects";
 import { playWhoosh, playSfx, TRANSITION_SFX_LIST, getSmartSfxForClip } from "../lib/sfx";
@@ -55,7 +55,7 @@ export default function Editor({
   captionSize, setCaptionSize, captionLineHeight, setCaptionLineHeight,
   captionFontScale, setCaptionFontScale,
   captionName, captionError, onCaptionFile,
-  captionPos = "bottom", setCaptionPos, setCaptionCues,
+  captionPos = "bottom", setCaptionPos, captionFont = "default", setCaptionFont, setCaptionCues,
   bgmFile, setBgmFile, bgmVolume = 0.25, setBgmVolume, bgmDucking = true, setBgmDucking,
   transitionSfx = true, setTransitionSfx, transitionSfxVol = 0.3, setTransitionSfxVol,
   transitionSfxType = "whoosh", setTransitionSfxType,
@@ -449,7 +449,7 @@ export default function Editor({
     if (captionsOn && captionCues && captionCues.length) {
       const cue = captionCueAt ? captionCueAt(captionCues, t) : null;
       const txt = cue ? cue.text : captionAt(captionCues, t);
-      if (txt) drawCaption(ctx, txt, W, H, captionStyle, captionFontPx(H, captionSize, captionFontScale), captionLineHeight, cue, t, captionPos);
+      if (txt) drawCaption(ctx, txt, W, H, captionStyle, captionFontPx(H, captionSize, captionFontScale), captionLineHeight, cue, t, captionPos, captionFont);
     }
 
     // Watermark / channel logo overlay (burned in under fades)
@@ -485,7 +485,7 @@ export default function Editor({
   }, [clips, imageEls, transitionsByName, transitionDuration, motionByName, motionAmount,
       effectsByName, effectIntensityByName,
       fadeIn, fadeOut, duration, exportDuration, playing, videoInfoByName, videoParams, volumeByName,
-      captionsOn, captionCues, captionStyle, captionSize, captionLineHeight, captionFontScale, captionPos,
+      captionsOn, captionCues, captionStyle, captionSize, captionLineHeight, captionFontScale, captionPos, captionFont,
       watermarkPos, watermarkOpacity, watermarkScale,
       watermarkText, watermarkIsCircle, watermarkShadow, watermarkMargin, watermarkFadeIn, watermarkTextColor, watermarkTextBg]);
 
@@ -1410,6 +1410,28 @@ export default function Editor({
                         {st.label}
                       </button>
                     ))}
+                  </div>
+
+                  <div className="mini-h" style={{ marginTop: 12 }}>Font Family (Viral Creator Fonts)</div>
+                  <select
+                    className="font-picker-select"
+                    value={captionFont}
+                    onChange={(e) => {
+                      if (setCaptionFont) setCaptionFont(e.target.value);
+                      if (drawRef.current) drawRef.current(timeRef.current);
+                    }}
+                  >
+                    {POPULAR_FONTS.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.label} — [{f.creator}]
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                    <span className="font-preview-chip">
+                      ✨ Font: {POPULAR_FONTS.find((f) => f.id === captionFont)?.label || "Default"}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--text-dim)" }}>🇮🇳 Hindi Auto Support</span>
                   </div>
 
                   <div className="mini-h" style={{ marginTop: 12 }}>Vertical Position</div>

@@ -158,6 +158,7 @@ export default function Home() {
   const [captionLineHeight, setCaptionLineHeight] = useState(null); // null = per-style default
   const [captionFontScale, setCaptionFontScale] = useState(null);   // null = use the size preset
   const [captionPos, setCaptionPos] = useState("bottom");
+  const [captionFont, setCaptionFont] = useState("default");
   const [bgmFile, setBgmFile] = useState(null);
   const [bgmVolume, setBgmVolume] = useState(0.25);
   const [bgmDucking, setBgmDucking] = useState(true);
@@ -884,7 +885,7 @@ export default function Home() {
           watermarkText, watermarkIsCircle, watermarkShadow, watermarkMargin, watermarkFadeIn, watermarkTextColor, watermarkTextBg,
           videosByName, trims, speeds, volumes,
           cues: captionsOn && captionCues.length ? captionCues : null,
-          captionStyle, captionSize, captionLineHeight, captionFontScale, captionPos,
+          captionStyle, captionSize, captionLineHeight, captionFontScale, captionPos, captionFont,
         },
         imagesByName,
         (frac, phase) => { setWcProgress(frac); if (phase) setWcPhase(phase); },
@@ -1173,6 +1174,7 @@ export default function Home() {
           captionFontScale={captionFontScale} setCaptionFontScale={setCaptionFontScale}
           captionName={captionName} captionError={captionError} onCaptionFile={onCaptionFile}
           captionPos={captionPos} setCaptionPos={setCaptionPos}
+          captionFont={captionFont} setCaptionFont={setCaptionFont}
           bgmFile={bgmFile} setBgmFile={setBgmFile}
           bgmVolume={bgmVolume} setBgmVolume={setBgmVolume}
           bgmDucking={bgmDucking} setBgmDucking={setBgmDucking}

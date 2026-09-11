@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Cinzel:wght@700&family=Montserrat:wght@700;900&family=Outfit:wght@700;800&family=Poppins:wght@700;800&display=swap');
+
 :root {
   /* MK AutoEditor — CapCut Pro Gold Glass theme */
   --bg: #0b0c10;
@@ -1657,5 +1659,47 @@ button:focus-visible, .dz:focus-visible, a:focus-visible {
   border-color: var(--accent);
   background: rgba(255, 255, 255, 0.05);
 }
+
+/* ---------- Caption Font Picker ---------- */
+.font-picker-select {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  margin-top: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.font-picker-select:hover {
+  border-color: var(--accent);
+}
+.font-picker-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--amber-dim);
+}
+.font-picker-select option {
+  background: #161822;
+  color: #fff;
+  padding: 8px;
+}
+.font-preview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 
 
