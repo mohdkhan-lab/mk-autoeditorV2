@@ -237,11 +237,29 @@ export default function Editor({
     e.target.value = "";
   }, [onCaptionFile]);
 
-  // Keep one offscreen <video> per video clip so the preview can draw live frames
-  // (not just the poster). Created/torn down as clips come and go.
+  // Keep offscreen <video> only for the CURRENT previewing clips (not all 100 clips at once!)
+  // This keeps the GPU decoder pool completely clear and prevents browser crashes.
   useEffect(() => {
+    if (busy || wcBusy) {
+      for (const v of Object.values(vidRefs.current)) {
+        if (v) { try { v.pause(); v.removeAttribute("src"); v.load(); } catch (_) {} }
+      }
+      vidRefs.current = {};
+      return;
+    }
     const map = vidRefs.current;
-    for (const [name, info] of Object.entries(videoInfoByName)) {
+    let activeName = null, nextName = null;
+    if (clips && clips.length) {
+      const idx = clips.findIndex((c) => time >= c.start && time < c.start + c.duration);
+      if (idx !== -1) {
+        activeName = clips[idx].name;
+        if (idx + 1 < clips.length) nextName = clips[idx + 1].name;
+      }
+    }
+    const needed = new Set([activeName, nextName].filter(Boolean));
+
+    for (const name of needed) {
+      const info = videoInfoByName[name];
       if (!map[name] && info && info.url) {
         const v = document.createElement("video");
         v.src = info.url; v.muted = true; v.playsInline = true; v.preload = "auto";
@@ -256,9 +274,16 @@ export default function Editor({
       }
     }
     for (const name of Object.keys(map)) {
-      if (!videoInfoByName[name]) { try { map[name].pause(); } catch { /* ignore */ } delete map[name]; }
+      if (!needed.has(name) || !videoInfoByName[name]) {
+        try {
+          map[name].pause();
+          map[name].removeAttribute("src");
+          map[name].load();
+        } catch { /* ignore */ }
+        delete map[name];
+      }
     }
-  }, [videoInfoByName]);
+  }, [videoInfoByName, clips, time, busy, wcBusy]);
 
   // Where in the source video to show for a clip at playhead t: the trim in-point
   // plus elapsed × speed (fast-forward). Mirrors the render math in page.js.
@@ -317,6 +342,7 @@ export default function Editor({
 
   const draw = useCallback((t) => {
     try {
+      if (busy || wcBusy) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
@@ -340,6 +366,7 @@ export default function Editor({
     // Start/keep a clip's offscreen <video> playing in sync with the playhead.
     // Uses smooth PLL clock micro-nudging so the video NEVER stalls or seek-stutters.
     const primeVideo = (c, tt, wantDraw) => {
+      if (busy || wcBusy) return null;
       const vinfo = videoInfoByName[c.name];
       if (!vinfo) return null;
       const v = vidRefs.current[c.name];
@@ -487,16 +514,38 @@ export default function Editor({
       fadeIn, fadeOut, duration, exportDuration, playing, videoInfoByName, videoParams, volumeByName,
       captionsOn, captionCues, captionStyle, captionSize, captionLineHeight, captionFontScale, captionPos, captionFont,
       watermarkPos, watermarkOpacity, watermarkScale,
-      watermarkText, watermarkIsCircle, watermarkShadow, watermarkMargin, watermarkFadeIn, watermarkTextColor, watermarkTextBg]);
+      watermarkText, watermarkIsCircle, watermarkShadow, watermarkMargin, watermarkFadeIn, watermarkTextColor, watermarkTextBg,
+      busy, wcBusy]);
 
   useEffect(() => { drawRef.current = draw; }, [draw]);
   useEffect(() => { timeRef.current = time; }, [time]);
   useEffect(() => { if (!playing) draw(time); }, [time, draw, playing]);
   useEffect(() => { setTime(0); }, [audioUrl]);
 
-  // Elapsed render timer.
+  // Elapsed render timer and render isolation
   useEffect(() => {
     if (!busy && !wcBusy) { setElapsed(0); return; }
+    // As soon as export begins, STOP and FREE all preview playback and video decoders!
+    if (audioRef.current && !audioRef.current.paused) {
+      try { audioRef.current.pause(); } catch (_) {}
+    }
+    if (bgmAudioRef.current && !bgmAudioRef.current.paused) {
+      try { bgmAudioRef.current.pause(); } catch (_) {}
+    }
+    cancelAnimationFrame(rafRef.current);
+    setPlaying(false);
+    playingRef.current = false;
+    for (const v of Object.values(vidRefs.current)) {
+      if (v) {
+        try {
+          v.pause();
+          v.removeAttribute("src");
+          v.load();
+        } catch (_) {}
+      }
+    }
+    vidRefs.current = {};
+
     const start = Date.now();
     setElapsed(0);
     const id = setInterval(() => setElapsed((Date.now() - start) / 1000), 250);
