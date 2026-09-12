@@ -1081,7 +1081,7 @@ export default function Editor({
             ) : (
               <>
                 <button className="render render--busy" disabled>
-                  {wcBusy ? (wcPhase || "Rendering") : "Rendering"}… {Math.round((wcBusy ? wcProgress : progress) * 100)}%
+                  {wcBusy ? (wcPhase || `Rendering… ${Math.round(wcProgress * 100)}%`) : `Rendering… ${Math.round(progress * 100)}%`}
                 </button>
                 <div className="progress"><i style={{ width: `${Math.round((wcBusy ? wcProgress : progress) * 100)}%` }} /></div>
                 <div className="render-meta">
