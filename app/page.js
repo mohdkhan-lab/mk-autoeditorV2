@@ -932,6 +932,18 @@ export default function Home() {
         const isMacSafari = /Macintosh/.test(ua) && / Version\/.*Safari/.test(ua) && !/Chrome|Chromium|CriOS|Edg/.test(ua);
         const msg = (e && e.message ? e.message : "").toLowerCase();
         const encoderGaveUp = msg.includes("not configured") || msg.includes("did not complete") || logs.some((l) => /did not complete/i.test(l));
+        fetch("/api/log-error", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "webcodecs_render_error",
+            error: e && e.message ? e.message : String(e),
+            details,
+            resolution: `${renderDims.width}x${renderDims.height}`,
+            fps,
+          }),
+        }).catch(() => {});
+
         if (isIOS && encoderGaveUp) {
           // Every browser on iPhone/iPad is WebKit, so "use Chrome on iPhone" wouldn't help.
           showAlert("This video is too long for an iPhone or iPad to finish encoding — every browser on iOS shares the same limit. Please render on a computer (Chrome or Edge) or an Android phone, or export a shorter / lower-resolution video.",
