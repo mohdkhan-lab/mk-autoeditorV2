@@ -883,7 +883,7 @@ export default function Home() {
           transitionSfx, transitionSfxVol, transitionSfxType, transitionSfxMode, effectsByName, effectIntensityByName,
           watermarkImg, watermarkPos, watermarkOpacity, watermarkScale,
           watermarkText, watermarkIsCircle, watermarkShadow, watermarkMargin, watermarkFadeIn, watermarkTextColor, watermarkTextBg,
-          videosByName, trims, speeds, volumes,
+          videosByName, postersByName: imageEls, trims, speeds, volumes,
           cues: captionsOn && captionCues.length ? captionCues : null,
           captionStyle, captionSize, captionLineHeight, captionFontScale, captionPos, captionFont,
         },
