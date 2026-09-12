@@ -1071,10 +1071,15 @@ export default function Editor({
 
             {!(busy || wcBusy) ? (
               (wcAvailable || serverAvailable) ? (
-                <button
-                  className="render"
-                  onClick={wcAvailable ? onWebCodecsTest : onRender}
-                >Render MP4</button>
+                <>
+                  <button
+                    className="render"
+                    onClick={wcAvailable ? onWebCodecsTest : onRender}
+                  >Render MP4</button>
+                  <div style={{ fontSize: "11px", color: "#10b981", textAlign: "center", marginTop: "4px", fontWeight: "600", letterSpacing: "0.02em" }}>
+                    ● v2.1 Engine (Anti-Freeze Active)
+                  </div>
+                </>
               ) : (
                 <div className="note">Rendering needs Chrome, Edge, or Safari 16.4+ (WebCodecs) in this browser.</div>
               )
