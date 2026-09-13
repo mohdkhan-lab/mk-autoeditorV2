@@ -145,6 +145,15 @@ export default function Editor({
   const [effFilter, setEffFilter] = useState("all"); // "all" | "popular" | "cinematic" | "motion" | "mood"
   const [mixMode, setMixMode] = useState(false); // Transitions panel in random-mix mode
   const [mixPicks, setMixPicks] = useState(() => new Set()); // ephemeral: chosen transitions for the random mix
+
+  // Creative section enhancements
+  const [watermarkRotation, setWatermarkRotation] = useState(0);
+  const [watermarkBadge, setWatermarkBadge] = useState("none");
+  const [watermarkFontFamily, setWatermarkFontFamily] = useState("Outfit");
+  const [exportFilename, setExportFilename] = useState("story");
+  const [bgmFadeIn, setBgmFadeIn] = useState(1.0);
+  const [bgmFadeOut, setBgmFadeOut] = useState(1.5);
+  const [audioEqProfile, setAudioEqProfile] = useState("natural");
   const toggleMix = useCallback((id) => {
     setMixPicks((prev) => {
       const next = new Set(prev);
@@ -353,15 +362,31 @@ export default function Editor({
     ctx.fillRect(0, 0, W, H);
     const activeVideos = new Set(); // clip names whose video is active this frame
 
-    // Per-clip Ken Burns zoom at time tt (gaps never zoom). Progress is clamped so
-    // an outgoing image keeps its end-of-clip zoom through the transition.
+    // Per-clip Ken Burns zoom & pan/tilt motion at time tt (gaps never zoom).
     const scaleAt = (ci, tt) => {
       const c = clips[ci];
       if (!c || c.gap) return 1;
       const m = (motionByName && motionByName[c.name]) || "none";
       if (m === "none") return 1;
+      if (m === "panleft" || m === "panright" || m === "tiltup" || m === "tiltdown") {
+        return 1 + motionAmount * 1.35; // safe crop margin for directional camera movements
+      }
       const lp = Math.min(1, Math.max(0, (tt - c.start) / c.duration));
       return m === "zoomout" ? 1 + motionAmount * (1 - lp) : 1 + motionAmount * lp;
+    };
+
+    const motionOffsetAt = (ci, tt, W, H) => {
+      const c = clips[ci];
+      if (!c || c.gap) return { dx: 0, dy: 0 };
+      const m = (motionByName && motionByName[c.name]) || "none";
+      const lp = Math.min(1, Math.max(0, (tt - c.start) / c.duration));
+      const spanX = W * motionAmount * 1.4;
+      const spanY = H * motionAmount * 1.4;
+      if (m === "panleft") return { dx: Math.round(spanX * (0.5 - lp)), dy: 0 };
+      if (m === "panright") return { dx: Math.round(spanX * (lp - 0.5)), dy: 0 };
+      if (m === "tiltup") return { dx: 0, dy: Math.round(spanY * (0.5 - lp)) };
+      if (m === "tiltdown") return { dx: 0, dy: Math.round(spanY * (lp - 0.5)) };
+      return { dx: 0, dy: 0 };
     };
 
     // Start/keep a clip's offscreen <video> playing in sync with the playhead.
@@ -449,9 +474,9 @@ export default function Editor({
             : (EFFECTS[effId] ? EFFECTS[effId].defaultIntensity : 100);
           const clipElapsed = t - clip.start;
           const preT = getPreDrawTransform(effId, effInt, clipElapsed, clip.duration, W, H);
-          const effScale = preT ? preT.scale : 1;
-          const dx = preT ? preT.dx : 0;
-          const dy = preT ? preT.dy : 0;
+          const motOffset = motionOffsetAt(idx, t, W, H);
+          const dx = (preT ? preT.dx : 0) + motOffset.dx;
+          const dy = (preT ? preT.dy : 0) + motOffset.dy;
 
           const scale = Math.min(W / dw, H / dh) * scaleAt(idx, t) * effScale;
           const w = dw * scale, h = dh * scale;
@@ -494,6 +519,9 @@ export default function Editor({
         textBg: watermarkTextBg,
         fadeIn: watermarkFadeIn,
         time: t,
+        rotation: watermarkRotation,
+        badge: watermarkBadge,
+        fontFamily: watermarkFontFamily,
       });
     }
 
@@ -516,6 +544,7 @@ export default function Editor({
       captionsOn, captionCues, captionStyle, captionSize, captionLineHeight, captionFontScale, captionPos, captionFont,
       watermarkPos, watermarkOpacity, watermarkScale,
       watermarkText, watermarkIsCircle, watermarkShadow, watermarkMargin, watermarkFadeIn, watermarkTextColor, watermarkTextBg,
+      watermarkRotation, watermarkBadge, watermarkFontFamily,
       busy, wcBusy]);
 
   useEffect(() => { drawRef.current = draw; }, [draw]);
@@ -1048,6 +1077,40 @@ export default function Editor({
 
               <button
                 type="button"
+                className={`export-preset-card ${aspect === "1:1" && fps === 30 ? "is-active" : ""}`}
+                onClick={() => {
+                  setAspect("1:1");
+                  setFps(30);
+                  if (setRenderQuality) setRenderQuality("full");
+                }}
+              >
+                <div className="export-preset-card__top">
+                  <span className="export-preset-card__icon">⬛</span>
+                  <span className="export-preset-card__tag">1:1 SQUARE</span>
+                </div>
+                <div className="export-preset-card__title">Instagram Feed</div>
+                <div className="export-preset-card__desc">1080×1080 · 30fps · Feed Post</div>
+              </button>
+
+              <button
+                type="button"
+                className={`export-preset-card ${aspect === "4:5" && fps === 30 ? "is-active" : ""}`}
+                onClick={() => {
+                  setAspect("4:5");
+                  setFps(30);
+                  if (setRenderQuality) setRenderQuality("full");
+                }}
+              >
+                <div className="export-preset-card__top">
+                  <span className="export-preset-card__icon">📸</span>
+                  <span className="export-preset-card__tag">4:5 PORTRAIT</span>
+                </div>
+                <div className="export-preset-card__title">TikTok / Insta Post</div>
+                <div className="export-preset-card__desc">1080×1350 · 30fps · Tall Feed</div>
+              </button>
+
+              <button
+                type="button"
                 className={`export-preset-card ${renderQuality === "720p" ? "is-active" : ""}`}
                 onClick={() => {
                   if (setRenderQuality) setRenderQuality("720p");
@@ -1069,9 +1132,11 @@ export default function Editor({
                 <span className="ctrl__label">Aspect</span>
                 <span className="selectwrap">
                   <select value={aspect} onChange={(e) => setAspect(e.target.value)}>
-                    <option value="16:9">16:9 — 1920×1080</option>
-                    <option value="9:16">9:16 — 1080×1920</option>
-                    <option value="auto">Auto — match</option>
+                    <option value="16:9">16:9 — 1920×1080 (Cinema)</option>
+                    <option value="9:16">9:16 — 1080×1920 (Reels/Shorts)</option>
+                    <option value="1:1">1:1 — 1080×1080 (Square Feed)</option>
+                    <option value="4:5">4:5 — 1080×1350 (Portrait Feed)</option>
+                    <option value="auto">Auto — match image</option>
                   </select>
                 </span>
               </label>
@@ -1095,7 +1160,19 @@ export default function Editor({
               </label>
             </div>
 
-            <dl className="specs">
+            <div className="mini-h" style={{ marginTop: 12 }}>Export Filename</div>
+            <div className="export-filename-wrap">
+              <input
+                type="text"
+                className="wm-input"
+                value={exportFilename}
+                onChange={(e) => setExportFilename(e.target.value)}
+                placeholder="story"
+              />
+              <span className="export-ext-tag">.mp4</span>
+            </div>
+
+            <dl className="specs" style={{ marginTop: 10 }}>
               <div className="spec"><dt>Resolution</dt><dd>{(renderDims || dims).width}×{(renderDims || dims).height}{renderQuality === "720p" ? " · faster" : ""}</dd></div>
               <div className="spec"><dt>Images / Cuts</dt><dd>{imageCount} clips</dd></div>
               <div className="spec spec--length">
@@ -1145,7 +1222,7 @@ export default function Editor({
               </>
             )}
             {outUrl && (
-              <a className="download" href={outUrl} download="story.mp4" style={{ marginTop: 10 }}>
+              <a className="download" href={outUrl} download={`${(exportFilename && exportFilename.trim()) || "story"}.mp4`} style={{ marginTop: 10 }}>
                 ↓ Download Final Video (MP4)
               </a>
             )}
@@ -1192,10 +1269,10 @@ export default function Editor({
               {Object.values(EFFECTS)
                 .filter((eff) => {
                   if (effFilter === "all") return true;
-                  if (effFilter === "popular") return ["particles", "glitch", "cinema", "flash", "shake"].includes(eff.id);
-                  if (effFilter === "cinematic") return ["cinema", "grain", "vignette", "lensflare", "vintage"].includes(eff.id);
-                  if (effFilter === "motion") return ["shake", "flash", "glitch", "pulse", "lightning"].includes(eff.id);
-                  if (effFilter === "mood") return ["particles", "sunset", "neon", "noir", "vhs"].includes(eff.id);
+                  if (effFilter === "popular") return ["particles", "glitch", "cinema", "flash", "shake", "prism"].includes(eff.id);
+                  if (effFilter === "cinematic") return ["cinema", "grain", "vignette", "lensflare", "vintage", "anamorphic", "dreamy"].includes(eff.id);
+                  if (effFilter === "motion") return ["shake", "flash", "glitch", "pulse", "lightning", "strobe"].includes(eff.id);
+                  if (effFilter === "mood") return ["particles", "sunset", "neon", "noir", "vhs", "scanlines"].includes(eff.id);
                   return true;
                 })
                 .map((eff) => {
@@ -1322,6 +1399,11 @@ export default function Editor({
                   slideright: { tag: "MOTION", desc: "Smooth lateral slide right" },
                   wipeleft: { tag: "CLEAN", desc: "Directional wipe left" },
                   wiperight: { tag: "CLEAN", desc: "Directional wipe right" },
+                  warpzoom: { tag: "WARP", desc: "High-velocity optical warp surge" },
+                  flashwhite: { tag: "FLASH", desc: "High-key white impact burst" },
+                  ripple: { tag: "WATER", desc: "Liquid water ripple shockwave" },
+                  splitvertical: { tag: "SPLIT", desc: "Cinematic vertical bar split reveal" },
+                  pushleft: { tag: "PUSH", desc: "Dynamic screen push slide" },
                 }[tr.id] || { tag: "BLEND", desc: "Scene transition" };
 
                 return (
@@ -1522,6 +1604,30 @@ export default function Editor({
               ))}
             </div>
 
+            <div className="mini-h" style={{ marginTop: 14 }}>Pan &amp; Tilt Camera Paths</div>
+            <div className="motion-grid">
+              {[
+                { id: "panleft", name: "Pan Left", icon: "⬅️", tag: "PAN", desc: "Smooth lateral pan left", action: () => applyMotionAll("panleft", imageClips.map((c) => c.name)) },
+                { id: "panright", name: "Pan Right", icon: "➡️", tag: "PAN", desc: "Smooth lateral pan right", action: () => applyMotionAll("panright", imageClips.map((c) => c.name)) },
+                { id: "tiltup", name: "Tilt Up", icon: "⬆️", tag: "TILT", desc: "Pedestal tilt upwards", action: () => applyMotionAll("tiltup", imageClips.map((c) => c.name)) },
+                { id: "tiltdown", name: "Tilt Down", icon: "⬇️", tag: "TILT", desc: "Pedestal tilt downwards", action: () => applyMotionAll("tiltdown", imageClips.map((c) => c.name)) },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className="motion-card"
+                  onClick={m.action}
+                >
+                  <div className="motion-card__top">
+                    <span className="motion-card__icon">{m.icon}</span>
+                    <span className="motion-card__tag">{m.tag}</span>
+                  </div>
+                  <div className="motion-card__title">{m.name}</div>
+                  <div className="motion-card__desc">{m.desc}</div>
+                </button>
+              ))}
+            </div>
+
             {/* Zoom Depth Card */}
             <div className="eff-slider-card" style={{ marginTop: 12 }}>
               <div className="eff-slider-card__head">
@@ -1647,6 +1753,24 @@ export default function Editor({
                       onClick={() => setIsEditingCaptions((v) => !v)}
                     >
                       {isEditingCaptions ? "✕ close editor" : "✏️ edit lines"}
+                    </button> ·{" "}
+                    <button
+                      type="button"
+                      className="cap-caps-btn"
+                      onClick={() => {
+                        if (setCaptionCues && captionCues && captionCues.length) {
+                          const allUpper = captionCues.every((c) => c.text === c.text.toUpperCase());
+                          setCaptionCues((prev) =>
+                            prev.map((c) => ({
+                              ...c,
+                              text: allUpper ? (c.text.charAt(0).toUpperCase() + c.text.slice(1).toLowerCase()) : c.text.toUpperCase()
+                            }))
+                          );
+                        }
+                      }}
+                      title="Toggle uppercase styling for viral high-retention subtitles"
+                    >
+                      🔠 {captionCues.every((c) => c.text === c.text.toUpperCase()) ? "Title Case" : "ALL CAPS"}
                     </button>
                   </span>
                 </div>
@@ -1695,6 +1819,8 @@ export default function Editor({
                           onClick={() => setCaptionStyle(st.id)}
                         >
                           <div className="cap-style-card__preview">
+                            {st.id === "ovogold" && <span style={{ color: "#fbbf24", background: "rgba(15,17,23,0.9)", padding: "1px 5px", borderRadius: 3, fontWeight: 800, fontSize: "10px" }}>OVO GOLD</span>}
+                            {st.id === "terminal" && <span style={{ color: "#00ff66", background: "rgba(0,20,5,0.9)", padding: "1px 5px", borderRadius: 3, fontFamily: "monospace", fontWeight: 700, fontSize: "10px" }}>&gt;_TERM</span>}
                             {st.id === "mrbeast" && <span style={{ color: "#ffea00", textShadow: "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000", fontWeight: 900, fontSize: "11px", letterSpacing: "0.05em" }}>MRBEAST</span>}
                             {st.id === "hormozi" && <span style={{ color: "#ccff00", textShadow: "1px 1px 0 #000", fontWeight: 900, fontSize: "11px" }}>HORMOZI</span>}
                             {st.id === "vox" && <span style={{ background: "#000", color: "#ffea00", padding: "1px 5px", borderRadius: 3, fontWeight: 800, fontSize: "10px" }}>VOX TAG</span>}
@@ -1714,6 +1840,31 @@ export default function Editor({
                         </button>
                       );
                     })}
+                  </div>
+
+                  <div className="mini-h" style={{ marginTop: 12 }}>Highlight Accent Color</div>
+                  <div className="wm-color-row">
+                    {[
+                      { hex: "#fbbf24", name: "Gold" },
+                      { hex: "#22c55e", name: "Neon Green" },
+                      { hex: "#00f2fe", name: "Cyan" },
+                      { hex: "#ff3b30", name: "Fire Red" },
+                      { hex: "#a855f7", name: "Purple" },
+                      { hex: "#ffffff", name: "Pure White" },
+                    ].map((c) => (
+                      <div
+                        key={c.hex}
+                        className="wm-color-dot"
+                        style={{ background: c.hex }}
+                        title={c.name}
+                        onClick={() => {
+                          if (CAPTION_STYLES[captionStyle]) {
+                            CAPTION_STYLES[captionStyle].highlightFill = c.hex;
+                            if (drawRef.current) drawRef.current(timeRef.current);
+                          }
+                        }}
+                      />
+                    ))}
                   </div>
 
                   <div className="mini-h" style={{ marginTop: 12 }}>Font Family (Viral Creator Fonts)</div>
@@ -1914,6 +2065,75 @@ export default function Editor({
                     <div className="ducking-card__desc">Music plays steady throughout</div>
                   </button>
                 </div>
+
+                <div className="mini-h" style={{ marginTop: 14 }}>BGM Fade Envelopes (Intro / Outro)</div>
+                <div className="fades-grid" style={{ marginTop: 6 }}>
+                  <div className="fade-card">
+                    <div className="fade-card__head">
+                      <span className="fade-card__title">Music Fade-In</span>
+                      <span className="fade-card__badge">{bgmFadeIn > 0 ? `${bgmFadeIn.toFixed(1)}s` : "Off"}</span>
+                    </div>
+                    <div className="tr-speed-chips" style={{ marginBottom: 6 }}>
+                      {[0, 1.0, 2.0].map((sec) => (
+                        <button
+                          key={sec}
+                          type="button"
+                          className={`tr-speed-chip ${Math.abs(bgmFadeIn - sec) < 0.1 ? "is-active" : ""}`}
+                          onClick={() => setBgmFadeIn(sec)}
+                        >
+                          {sec === 0 ? "Off" : `${sec}s`}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="range" min={0} max={3} step={0.1}
+                      value={bgmFadeIn} onChange={(e) => setBgmFadeIn(+e.target.value)}
+                      className="eff-slider-input"
+                    />
+                  </div>
+                  <div className="fade-card">
+                    <div className="fade-card__head">
+                      <span className="fade-card__title">Music Fade-Out</span>
+                      <span className="fade-card__badge">{bgmFadeOut > 0 ? `${bgmFadeOut.toFixed(1)}s` : "Off"}</span>
+                    </div>
+                    <div className="tr-speed-chips" style={{ marginBottom: 6 }}>
+                      {[0, 1.5, 3.0].map((sec) => (
+                        <button
+                          key={sec}
+                          type="button"
+                          className={`tr-speed-chip ${Math.abs(bgmFadeOut - sec) < 0.1 ? "is-active" : ""}`}
+                          onClick={() => setBgmFadeOut(sec)}
+                        >
+                          {sec === 0 ? "Off" : `${sec}s`}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="range" min={0} max={3} step={0.1}
+                      value={bgmFadeOut} onChange={(e) => setBgmFadeOut(+e.target.value)}
+                      className="eff-slider-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="mini-h" style={{ marginTop: 14 }}>Studio Vocal Equalizer</div>
+                <div className="eq-preset-grid">
+                  {[
+                    { id: "natural", title: "🎙️ Natural Podcast", desc: "Balanced clear presence" },
+                    { id: "broadcast", title: "📻 Broadcast Radio", desc: "Warm proximity effect" },
+                    { id: "crisp", title: "⚡ Crisp Highs", desc: "Airy speech clarity" },
+                    { id: "bass", title: "🔊 Warm Bass", desc: "Deep cinema warmth" },
+                  ].map((eq) => (
+                    <div
+                      key={eq.id}
+                      className={`eq-card ${audioEqProfile === eq.id ? "is-active" : ""}`}
+                      onClick={() => setAudioEqProfile(eq.id)}
+                    >
+                      <span className="eq-card__title">{eq.title}</span>
+                      <span className="eq-card__desc">{eq.desc}</span>
+                    </div>
+                  ))}
+                </div>
               </>
             )}
           </div>
@@ -2037,6 +2257,70 @@ export default function Editor({
                 </div>
               </>
             )}
+
+            <div className="mini-h" style={{ marginTop: 14 }}>Authority Badge</div>
+            <div className="badge-picker-grid">
+              {[
+                { id: "none", label: "None" },
+                { id: "verified", label: "☑️ Verified" },
+                { id: "diamond", label: "💎 VIP" },
+                { id: "bolt", label: "⚡ Pro" },
+              ].map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  className={`badge-chip ${watermarkBadge === b.id ? "is-active" : ""}`}
+                  onClick={() => {
+                    setWatermarkBadge(b.id);
+                    if (drawRef.current) drawRef.current(timeRef.current);
+                  }}
+                >
+                  {b.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mini-h" style={{ marginTop: 14 }}>Brand Typography</div>
+            <select
+              className="font-picker-select"
+              value={watermarkFontFamily}
+              onChange={(e) => {
+                setWatermarkFontFamily(e.target.value);
+                if (drawRef.current) drawRef.current(timeRef.current);
+              }}
+            >
+              <option value="Outfit">Outfit — Modern Geometric</option>
+              <option value="Inter">Inter — Clean Editorial</option>
+              <option value="Impact">Impact — Heavy Bold</option>
+              <option value="Courier New">Courier New — Monospace Code</option>
+            </select>
+
+            <div className="mini-h" style={{ marginTop: 14 }}>Rotation Tilt</div>
+            <div className="eff-slider-card">
+              <div className="eff-slider-card__head">
+                <span className="eff-slider-card__title">Angle ({watermarkRotation}°)</span>
+                <button
+                  type="button"
+                  className="cap-replace"
+                  style={{ padding: "0 6px", fontSize: 10 }}
+                  onClick={() => {
+                    setWatermarkRotation(0);
+                    if (drawRef.current) drawRef.current(timeRef.current);
+                  }}
+                >
+                  0° Reset
+                </button>
+              </div>
+              <input
+                type="range" min={-15} max={15} step={1}
+                value={watermarkRotation}
+                onChange={(e) => {
+                  setWatermarkRotation(+e.target.value);
+                  if (drawRef.current) drawRef.current(timeRef.current);
+                }}
+                className="eff-slider-input"
+              />
+            </div>
 
             {/* 3. Protection & Animation */}
             <div className="mini-h" style={{ marginTop: 14 }}>Effects &amp; Protection</div>
