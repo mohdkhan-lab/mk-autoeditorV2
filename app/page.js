@@ -129,41 +129,58 @@ function loadVideoEl(file) {
     v.preload = "auto";
     v.muted = true;
     v.playsInline = true;
-    v.src = url;
 
-    // Safety timeout: never hang editor if video metadata/frame takes too long
+    // Safety timeout: fallback after 2.5s if hardware decoder hangs
     const timer = setTimeout(() => {
       if (!resolved) {
         finish(null, v.videoWidth || 1280, v.videoHeight || 720, v.duration || 0);
       }
-    }, 1200);
+    }, 2500);
 
-    const grab = () => {
+    const tryCapture = () => {
       try {
         if (v.videoWidth > 0 && v.videoHeight > 0) {
           const c = document.createElement("canvas");
           c.width = v.videoWidth; c.height = v.videoHeight;
           const ctx = c.getContext("2d");
           ctx.drawImage(v, 0, 0, c.width, c.height);
+          const dataUrl = c.toDataURL("image/jpeg", 0.85);
           clearTimeout(timer);
-          finish(c.toDataURL("image/jpeg", 0.85), c.width, c.height, v.duration);
-          return;
+          finish(dataUrl, c.width, c.height, v.duration);
+          return true;
         }
       } catch (_) {}
-      clearTimeout(timer);
-      finish(null, v.videoWidth || 1280, v.videoHeight || 720, v.duration || 0);
+      return false;
     };
 
-    v.onseeked = grab;
-    v.onloadeddata = () => {
-      try {
-        v.currentTime = Math.min(0.1, (v.duration || 1) / 2);
-      } catch (_) { grab(); }
+    v.onseeked = () => {
+      if (!tryCapture()) setTimeout(tryCapture, 80);
     };
+
+    const onDataReady = () => {
+      if (v.currentTime > 0) {
+        tryCapture();
+      } else {
+        try {
+          v.currentTime = Math.min(0.1, (v.duration || 1) / 2);
+        } catch (_) {
+          tryCapture();
+        }
+      }
+    };
+
+    v.onloadeddata = onDataReady;
+    v.onloadedmetadata = () => {
+      if (v.readyState >= 2) onDataReady();
+    };
+    v.oncanplay = onDataReady;
     v.onerror = () => {
       clearTimeout(timer);
       finish(null, 1280, 720, 0);
     };
+
+    v.src = url;
+    try { v.load(); } catch (_) {}
   });
 }
 

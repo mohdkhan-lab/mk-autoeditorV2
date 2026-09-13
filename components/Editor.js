@@ -122,6 +122,7 @@ export default function Editor({
   const modalVideoRef = useRef(null); // the trim scrubber <video> in the inspector
   const lastFrameRef = useRef({}); // clip name -> last successfully rendered drawable (prevents black flicker)
   const seekThrottleRef = useRef({}); // clip name -> timestamp of last seek request
+  const lastSeekTargetRef = useRef({}); // clip name -> last sought srcTime (prevents infinite re-seek loops)
   const playLockRef = useRef({}); // clip name -> boolean indicating if play() promise is in flight
   useEffect(() => { trimEndRef.current = exportDuration; }, [exportDuration]);
   const [time, setTime] = useState(0);
@@ -284,6 +285,7 @@ export default function Editor({
         v.addEventListener("seeked", redraw);
         v.addEventListener("loadeddata", redraw);
         v.addEventListener("canplay", redraw);
+        try { v.load(); } catch (_) {}
         map[name] = v;
       }
     }
@@ -403,9 +405,9 @@ export default function Editor({
       const pr = videoParams(c.name, c.duration);
       if (!v || !pr) return null;
       const srcTime = Math.min(vinfo.duration || 0, Math.max(0, pr.trimStart + (tt - c.start) * pr.speed));
-      const clipVol = volumeByName[c.name] == null ? 0 : volumeByName[c.name];
-      v.volume = Math.min(1, Math.max(0, clipVol));
-      v.muted = clipVol <= 0;
+      // Keep offscreen canvas <video> muted to guarantee browser Autoplay policy never blocks it with NotAllowedError
+      v.muted = true;
+      v.volume = 0;
 
       const drift = v.currentTime - srcTime;
       const absDrift = Math.abs(drift);
@@ -417,6 +419,7 @@ export default function Editor({
           // Just started or unpaused: align to srcTime if needed (throttled to avoid 60 seeks/sec storm)
           if (absDrift > 0.12 && !v.seeking && (now - lastSeek > 180)) {
             seekThrottleRef.current[c.name] = now;
+            lastSeekTargetRef.current[c.name] = srcTime;
             try { v.currentTime = srcTime; } catch { /* ignore */ }
           }
           v.playbackRate = Math.min(16, Math.max(0.0625, pr.speed));
@@ -428,6 +431,7 @@ export default function Editor({
           // Major discontinuity during playback (playhead scrubbed/jumped) — seek without piling up
           if (!v.seeking && (now - lastSeek > 180)) {
             seekThrottleRef.current[c.name] = now;
+            lastSeekTargetRef.current[c.name] = srcTime;
             try { v.currentTime = srcTime; } catch { /* ignore */ }
           }
         } else {
@@ -441,13 +445,16 @@ export default function Editor({
           v.playbackRate = Math.min(16, Math.max(0.0625, rate));
         }
       } else {
-        // Paused or scrubbing: sync playhead to video frame smoothly
+        // Paused or scrubbing: sync playhead to video frame smoothly without infinite seek loops
         if (!v.paused) {
           try { v.pause(); } catch (_) {}
         }
         v.playbackRate = 1;
-        if (absDrift > 0.06 && !v.seeking && (now - lastSeek > 70)) {
+        const lastTarget = lastSeekTargetRef.current[c.name];
+        // Only seek if playhead target actually moved by > 0.04s, avoiding repetitive seek loop on 'seeked' event
+        if (Math.abs(srcTime - (lastTarget ?? -999)) > 0.04 && !v.seeking && (now - lastSeek > 80)) {
           seekThrottleRef.current[c.name] = now;
+          lastSeekTargetRef.current[c.name] = srcTime;
           try { v.currentTime = srcTime; } catch (_) {}
         }
       }
@@ -517,6 +524,7 @@ export default function Editor({
           const motOffset = motionOffsetAt(idx, t, W, H);
           const dx = (preT ? preT.dx : 0) + motOffset.dx;
           const dy = (preT ? preT.dy : 0) + motOffset.dy;
+          const effScale = (preT && preT.scale) ? preT.scale : 1;
 
           const scale = Math.min(W / fdw, H / fdh) * scaleAt(idx, t) * effScale;
           const w = fdw * scale, h = fdh * scale;
