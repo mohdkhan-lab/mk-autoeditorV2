@@ -558,9 +558,11 @@ body {
 .clip {
   position: absolute; top: 0; bottom: 0; min-width: 2px;
   background-size: cover; background-position: center;
+  background-color: #1a1e29;
+  background-image: linear-gradient(135deg, rgba(30, 36, 51, 0.95) 0%, rgba(17, 21, 32, 0.95) 100%);
   border-radius: 6px;
   border-right: 1px solid rgba(10,12,16,.9);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
   overflow: hidden;
   cursor: pointer;
   transition: transform .1s ease, box-shadow .15s ease;

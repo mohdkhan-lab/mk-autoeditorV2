@@ -120,6 +120,9 @@ export default function Editor({
   const timeRef = useRef(0);      // latest playhead time
   const playingRef = useRef(false); // latest playing boolean
   const modalVideoRef = useRef(null); // the trim scrubber <video> in the inspector
+  const lastFrameRef = useRef({}); // clip name -> last successfully rendered drawable (prevents black flicker)
+  const seekThrottleRef = useRef({}); // clip name -> timestamp of last seek request
+  const playLockRef = useRef({}); // clip name -> boolean indicating if play() promise is in flight
   useEffect(() => { trimEndRef.current = exportDuration; }, [exportDuration]);
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -248,7 +251,7 @@ export default function Editor({
   }, [onCaptionFile]);
 
   // Keep offscreen <video> only for the CURRENT previewing clips (not all 100 clips at once!)
-  // This keeps the GPU decoder pool completely clear and prevents browser crashes.
+  // Retaining previous, current, and next ensures transitions never drop frames and next clip is pre-warmed.
   useEffect(() => {
     if (busy || wcBusy) {
       for (const v of Object.values(vidRefs.current)) {
@@ -258,15 +261,15 @@ export default function Editor({
       return;
     }
     const map = vidRefs.current;
-    let activeName = null, nextName = null;
+    let prevName = null, activeName = null, nextName = null;
     if (clips && clips.length) {
-      const idx = clips.findIndex((c) => time >= c.start && time < c.start + c.duration);
-      if (idx !== -1) {
-        activeName = clips[idx].name;
-        if (idx + 1 < clips.length) nextName = clips[idx + 1].name;
-      }
+      let idx = clips.findIndex((c) => time >= c.start && time < c.start + c.duration);
+      if (idx === -1) idx = clips.length - 1;
+      if (idx > 0) prevName = clips[idx - 1].name;
+      if (idx >= 0 && idx < clips.length) activeName = clips[idx].name;
+      if (idx + 1 < clips.length) nextName = clips[idx + 1].name;
     }
-    const needed = new Set([activeName, nextName].filter(Boolean));
+    const needed = new Set([prevName, activeName, nextName].filter(Boolean));
 
     for (const name of needed) {
       const info = videoInfoByName[name];
@@ -280,6 +283,7 @@ export default function Editor({
         };
         v.addEventListener("seeked", redraw);
         v.addEventListener("loadeddata", redraw);
+        v.addEventListener("canplay", redraw);
         map[name] = v;
       }
     }
@@ -390,7 +394,7 @@ export default function Editor({
     };
 
     // Start/keep a clip's offscreen <video> playing in sync with the playhead.
-    // Uses smooth PLL clock micro-nudging so the video NEVER stalls or seek-stutters.
+    // Uses smooth PLL clock micro-nudging and throttled seeking so video NEVER stalls, decodes continuously, and eliminates black flickers.
     const primeVideo = (c, tt, wantDraw) => {
       if (busy || wcBusy) return null;
       const vinfo = videoInfoByName[c.name];
@@ -405,32 +409,53 @@ export default function Editor({
 
       const drift = v.currentTime - srcTime;
       const absDrift = Math.abs(drift);
+      const now = (typeof performance !== "undefined") ? performance.now() : Date.now();
+      const lastSeek = seekThrottleRef.current[c.name] || 0;
 
-      if (v.paused) {
-        // Just started or unpaused: align to srcTime and play
-        if (absDrift > 0.05) {
-          try { v.currentTime = srcTime; } catch { /* ignore */ }
-        }
-        v.playbackRate = Math.min(16, Math.max(0.0625, pr.speed));
-        v.play().catch(() => {});
-      } else if (absDrift > 0.35) {
-        // Major discontinuity (playhead scrubbed/jumped) — seek without piling up
-        if (!v.seeking) {
-          try { v.currentTime = srcTime; } catch { /* ignore */ }
+      if (playing) {
+        if (v.paused) {
+          // Just started or unpaused: align to srcTime if needed (throttled to avoid 60 seeks/sec storm)
+          if (absDrift > 0.12 && !v.seeking && (now - lastSeek > 180)) {
+            seekThrottleRef.current[c.name] = now;
+            try { v.currentTime = srcTime; } catch { /* ignore */ }
+          }
+          v.playbackRate = Math.min(16, Math.max(0.0625, pr.speed));
+          if (!playLockRef.current[c.name]) {
+            playLockRef.current[c.name] = true;
+            v.play().catch(() => {}).finally(() => { playLockRef.current[c.name] = false; });
+          }
+        } else if (absDrift > 0.35) {
+          // Major discontinuity during playback (playhead scrubbed/jumped) — seek without piling up
+          if (!v.seeking && (now - lastSeek > 180)) {
+            seekThrottleRef.current[c.name] = now;
+            try { v.currentTime = srcTime; } catch { /* ignore */ }
+          }
+        } else {
+          // Micro-drift PLL correction: gently nudge playbackRate without any seek stall!
+          let rate = pr.speed;
+          if (drift < -0.04) {
+            rate = pr.speed * 1.05; // lagging slightly behind -> 5% boost
+          } else if (drift > 0.04) {
+            rate = pr.speed * 0.95; // leading slightly ahead -> 5% brake
+          }
+          v.playbackRate = Math.min(16, Math.max(0.0625, rate));
         }
       } else {
-        // Micro-drift PLL correction: gently nudge playbackRate without any seek stall!
-        let rate = pr.speed;
-        if (drift < -0.04) {
-          rate = pr.speed * 1.06; // lagging slightly behind -> 6% boost
-        } else if (drift > 0.04) {
-          rate = pr.speed * 0.94; // leading slightly ahead -> 6% brake
+        // Paused or scrubbing: sync playhead to video frame smoothly
+        if (!v.paused) {
+          try { v.pause(); } catch (_) {}
         }
-        v.playbackRate = Math.min(16, Math.max(0.0625, rate));
+        v.playbackRate = 1;
+        if (absDrift > 0.06 && !v.seeking && (now - lastSeek > 70)) {
+          seekThrottleRef.current[c.name] = now;
+          try { v.currentTime = srcTime; } catch (_) {}
+        }
       }
 
       activeVideos.add(c.name);
-      return (wantDraw && v.readyState >= 2) ? v : null;
+      // Return video element if ready to draw (readyState >= 1 and videoWidth > 0 retains frame texture)
+      const canDraw = (v.readyState >= 1 && (v.videoWidth > 0 || v.readyState >= 2));
+      return (wantDraw && canDraw) ? v : null;
     };
 
     if (clips.length) {
@@ -444,30 +469,45 @@ export default function Editor({
         // Inside a transition: blend both clips (live video or still poster)
         const p = Math.min(1, Math.max(0, (t - clip.start) / tdur));
         let fromDrawable = imageEls[clips[idx - 1].name] || null;
-        if (playing) {
-          const fromV = primeVideo(clips[idx - 1], t, true);
-          if (fromV) fromDrawable = fromV;
-        }
+        const fromV = primeVideo(clips[idx - 1], t, true);
+        if (fromV) fromDrawable = fromV;
+
         let toDrawable = imageEls[clip.name] || null;
-        if (playing) {
-          const toV = primeVideo(clip, t, true);
-          if (toV) toDrawable = toV;
+        const toV = primeVideo(clip, t, true);
+        if (toV) toDrawable = toV;
+
+        // Prevent black transition dropouts with last known frame cache
+        if ((!fromDrawable || (!fromDrawable.videoWidth && !fromDrawable.naturalWidth)) && lastFrameRef.current[clips[idx - 1].name]) {
+          fromDrawable = lastFrameRef.current[clips[idx - 1].name];
         }
+        if ((!toDrawable || (!toDrawable.videoWidth && !toDrawable.naturalWidth)) && lastFrameRef.current[clip.name]) {
+          toDrawable = lastFrameRef.current[clip.name];
+        }
+
         transitionOf(type).canvas(
           ctx, fromDrawable, toDrawable, p, W, H,
           scaleAt(idx - 1, t), scaleAt(idx, t)
         );
         ctx.globalAlpha = 1;
       } else {
-        // While PLAYING, draw live video frames smoothly
-        let drawable = imageEls[clip.name];
-        if (playing) {
-          const vEl = primeVideo(clip, t, true);
-          if (vEl) drawable = vEl;
-        }
+        // Draw live video frames or still images smoothly
+        let drawable = imageEls[clip.name] || null;
+        const vEl = primeVideo(clip, t, true);
+        if (vEl) drawable = vEl;
+
         const dw = (drawable && (drawable.videoWidth || drawable.naturalWidth)) || 0;
         const dh = (drawable && (drawable.videoHeight || drawable.naturalHeight)) || 0;
-        if (drawable && dw && dh) {
+
+        let finalDrawable = (dw > 0 && dh > 0) ? drawable : null;
+        if (!finalDrawable && lastFrameRef.current[clip.name]) {
+          finalDrawable = lastFrameRef.current[clip.name];
+        }
+
+        const fdw = (finalDrawable && (finalDrawable.videoWidth || finalDrawable.naturalWidth)) || 0;
+        const fdh = (finalDrawable && (finalDrawable.videoHeight || finalDrawable.naturalHeight)) || 0;
+
+        if (finalDrawable && fdw > 0 && fdh > 0) {
+          lastFrameRef.current[clip.name] = finalDrawable;
           const effId = effectsByName && effectsByName[clip.name];
           const effInt = (effectIntensityByName && effectIntensityByName[clip.name]) != null
             ? effectIntensityByName[clip.name]
@@ -478,9 +518,9 @@ export default function Editor({
           const dx = (preT ? preT.dx : 0) + motOffset.dx;
           const dy = (preT ? preT.dy : 0) + motOffset.dy;
 
-          const scale = Math.min(W / dw, H / dh) * scaleAt(idx, t) * effScale;
-          const w = dw * scale, h = dh * scale;
-          ctx.drawImage(drawable, (W - w) / 2 + dx, (H - h) / 2 + dy, w, h);
+          const scale = Math.min(W / fdw, H / fdh) * scaleAt(idx, t) * effScale;
+          const w = fdw * scale, h = fdh * scale;
+          ctx.drawImage(finalDrawable, (W - w) / 2 + dx, (H - h) / 2 + dy, w, h);
 
           if (effId && effId !== "none") {
             try {

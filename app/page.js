@@ -36,11 +36,54 @@ function isMediaFile(f) {
   return isVideoFile(f) || isImageFile(f);
 }
 
+function makePlaceholderPoster(label = "Media", width = 1280, height = 720) {
+  try {
+    const c = document.createElement("canvas");
+    c.width = width; c.height = height;
+    const ctx = c.getContext("2d");
+    if (ctx) {
+      const grad = ctx.createLinearGradient(0, 0, width, height);
+      grad.addColorStop(0, "#1e293b");
+      grad.addColorStop(1, "#0f172a");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+      ctx.lineWidth = Math.max(2, Math.round(width / 360));
+      const cx = width / 2, cy = height / 2, r = Math.min(width, height) * 0.16;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      const tri = r * 0.55;
+      ctx.moveTo(cx - tri * 0.4, cy - tri * 0.65);
+      ctx.lineTo(cx + tri * 0.75, cy);
+      ctx.lineTo(cx - tri * 0.4, cy + tri * 0.65);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.font = `600 ${Math.max(14, Math.round(height * 0.045))}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.fillText(label, cx, cy + r + Math.round(height * 0.08));
+      return c.toDataURL("image/jpeg", 0.82);
+    }
+  } catch (_) {}
+  return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='720' viewBox='0 0 1280 720'><rect width='1280' height='720' fill='%231e293b'/><circle cx='640' cy='360' r='100' fill='%23334155'/><polygon points='610,310 690,360 610,410' fill='%23ffffff'/></svg>";
+}
+
 function loadImageEl(file) {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => { img.url = url; img.fileName = file.name; resolve(img); };
+    img.onerror = () => {
+      const fallbackUrl = makePlaceholderPoster(file.name || "Image", 1280, 720);
+      const fallbackImg = new Image();
+      fallbackImg.onload = () => { fallbackImg.url = fallbackUrl; fallbackImg.fileName = file.name; resolve(fallbackImg); };
+      fallbackImg.src = fallbackUrl;
+    };
     img.src = url;
   });
 }
@@ -51,34 +94,76 @@ function loadImageEl(file) {
 function loadVideoEl(file) {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
+    let resolved = false;
+
     const finish = (posterSrc, w, h, dur) => {
+      if (resolved) return;
+      resolved = true;
+      const finalPoster = posterSrc || makePlaceholderPoster(file.name || "Video", w || 1280, h || 720);
       const img = new Image();
       img.onload = () => {
-        img.url = posterSrc; img.fileName = file.name;
-        img.isVideo = true; img.videoUrl = url; img.videoDuration = dur || 0;
+        img.url = finalPoster;
+        img.fileName = file.name;
+        img.isVideo = true;
+        img.videoUrl = url;
+        img.videoDuration = dur || 0;
         resolve(img);
       };
-      img.onerror = () => { // poster failed — resolve a bare marker so it still imports
-        img.url = null; img.fileName = file.name; img.isVideo = true;
-        img.videoUrl = url; img.videoDuration = dur || 0; resolve(img);
+      img.onerror = () => {
+        const svgFallback = makePlaceholderPoster(file.name || "Video", 1280, 720);
+        const fallbackImg = new Image();
+        fallbackImg.onload = () => {
+          fallbackImg.url = svgFallback;
+          fallbackImg.fileName = file.name;
+          fallbackImg.isVideo = true;
+          fallbackImg.videoUrl = url;
+          fallbackImg.videoDuration = dur || 0;
+          resolve(fallbackImg);
+        };
+        fallbackImg.src = svgFallback;
       };
-      img.src = posterSrc || url;
+      img.src = finalPoster;
     };
+
     const v = document.createElement("video");
-    v.preload = "metadata"; v.muted = true; v.playsInline = true; v.src = url;
-    v.onloadeddata = () => {
-      const grab = () => {
-        try {
+    v.preload = "auto";
+    v.muted = true;
+    v.playsInline = true;
+    v.src = url;
+
+    // Safety timeout: never hang editor if video metadata/frame takes too long
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        finish(null, v.videoWidth || 1280, v.videoHeight || 720, v.duration || 0);
+      }
+    }, 1200);
+
+    const grab = () => {
+      try {
+        if (v.videoWidth > 0 && v.videoHeight > 0) {
           const c = document.createElement("canvas");
-          c.width = v.videoWidth || 1280; c.height = v.videoHeight || 720;
-          c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
-          finish(c.toDataURL("image/jpeg", 0.82), c.width, c.height, v.duration);
-        } catch { finish(null, v.videoWidth, v.videoHeight, v.duration); }
-      };
-      v.onseeked = grab;
-      try { v.currentTime = Math.min(0.1, (v.duration || 1) / 2); } catch { grab(); }
+          c.width = v.videoWidth; c.height = v.videoHeight;
+          const ctx = c.getContext("2d");
+          ctx.drawImage(v, 0, 0, c.width, c.height);
+          clearTimeout(timer);
+          finish(c.toDataURL("image/jpeg", 0.85), c.width, c.height, v.duration);
+          return;
+        }
+      } catch (_) {}
+      clearTimeout(timer);
+      finish(null, v.videoWidth || 1280, v.videoHeight || 720, v.duration || 0);
     };
-    v.onerror = () => finish(null, 0, 0, 0);
+
+    v.onseeked = grab;
+    v.onloadeddata = () => {
+      try {
+        v.currentTime = Math.min(0.1, (v.duration || 1) / 2);
+      } catch (_) { grab(); }
+    };
+    v.onerror = () => {
+      clearTimeout(timer);
+      finish(null, 1280, 720, 0);
+    };
   });
 }
 
