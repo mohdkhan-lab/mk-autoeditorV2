@@ -142,6 +142,7 @@ export default function Editor({
   const [sidebarEffect, setSidebarEffect] = useState("shake");
   const [sidebarIntensity, setSidebarIntensity] = useState(70);
   const [sidebarTab, setSidebarTab] = useState("effects"); // "effects" | "transitions" | "motion" | "captions" | "export" | "all"
+  const [effFilter, setEffFilter] = useState("all"); // "all" | "popular" | "cinematic" | "motion" | "mood"
   const [mixMode, setMixMode] = useState(false); // Transitions panel in random-mix mode
   const [mixPicks, setMixPicks] = useState(() => new Set()); // ephemeral: chosen transitions for the random mix
   const toggleMix = useCallback((id) => {
@@ -924,94 +925,81 @@ export default function Editor({
       </div>
 
       <aside className="side">
-        <div className="side__tabs-header">
-          <button
-            type="button"
-            className="side__tab-nav"
-            onClick={() => scrollTabs(-140)}
-            title="Scroll tabs left"
-            aria-label="Scroll tabs left"
-          >‹</button>
-          <div
-            ref={tabsRef}
-            className={`side__tabs ${tabsGrid ? "side__tabs--grid" : ""}`}
-            onWheel={onTabsWheel}
-            onPointerDown={onTabsPointerDown}
-            onPointerMove={onTabsPointerMove}
-            onPointerUp={onTabsPointerUp}
-          >
+        <div className="side__tabs-dock">
+          <div className="side__tabs-grid">
             <button
               type="button"
               className={`sidetab ${sidebarTab === "effects" ? "is-active" : ""}`}
               onClick={() => setSidebarTab("effects")}
+              title="Visual Effects"
             >
-              ✨ Effects
+              <span className="sidetab__icon">✨</span>
+              <span className="sidetab__text">Effects</span>
             </button>
             <button
               type="button"
               className={`sidetab ${sidebarTab === "transitions" ? "is-active" : ""}`}
               onClick={() => setSidebarTab("transitions")}
+              title="Transitions"
             >
-              🔀 Transitions
+              <span className="sidetab__icon">🔀</span>
+              <span className="sidetab__text">Transitions</span>
             </button>
             <button
               type="button"
               className={`sidetab ${sidebarTab === "motion" ? "is-active" : ""}`}
               onClick={() => setSidebarTab("motion")}
+              title="Motion & Zoom"
             >
-              ⤢ Motion
+              <span className="sidetab__icon">⤢</span>
+              <span className="sidetab__text">Motion</span>
             </button>
             <button
               type="button"
               className={`sidetab ${sidebarTab === "captions" ? "is-active" : ""}`}
               onClick={() => setSidebarTab("captions")}
+              title="Captions & Subtitles"
             >
-              💬 Captions
+              <span className="sidetab__icon">💬</span>
+              <span className="sidetab__text">Captions</span>
             </button>
             <button
               type="button"
               className={`sidetab ${sidebarTab === "audio" ? "is-active" : ""}`}
               onClick={() => setSidebarTab("audio")}
+              title="Audio & Sound Effects"
             >
-              🎵 Audio
+              <span className="sidetab__icon">🎵</span>
+              <span className="sidetab__text">Audio</span>
             </button>
             <button
               type="button"
               className={`sidetab ${sidebarTab === "watermark" ? "is-active" : ""}`}
               onClick={() => setSidebarTab("watermark")}
+              title="Brand Logo & Watermark"
             >
-              🏷️ Logo
+              <span className="sidetab__icon">🏷️</span>
+              <span className="sidetab__text">Brand</span>
             </button>
             <button
               type="button"
               className={`sidetab ${sidebarTab === "export" ? "is-active" : ""}`}
               onClick={() => setSidebarTab("export")}
+              title="Export & Render"
             >
-              📦 Export
+              <span className="sidetab__icon">🚀</span>
+              <span className="sidetab__text">Export</span>
             </button>
             <button
               type="button"
               className={`sidetab ${sidebarTab === "all" ? "is-active" : ""}`}
               onClick={() => setSidebarTab("all")}
-              title="Show all inspector panels"
+              title="Show All Panels"
             >
-              All
+              <span className="sidetab__icon">📑</span>
+              <span className="sidetab__text">All</span>
             </button>
           </div>
-          <button
-            type="button"
-            className="side__tab-nav"
-            onClick={() => scrollTabs(140)}
-            title="Scroll tabs right"
-            aria-label="Scroll tabs right"
-          >›</button>
-          <button
-            type="button"
-            className={`side__tab-gridtoggle ${tabsGrid ? "is-active" : ""}`}
-            onClick={() => setTabsGrid((g) => !g)}
-            title={tabsGrid ? "Switch to horizontal scroll tab bar" : "Expand all tabs into 2-row grid"}
-            aria-label="Toggle tabs grid view"
-          >⊞</button>
         </div>
 
         {(sidebarTab === "export" || sidebarTab === "all") && (
@@ -1103,77 +1091,137 @@ export default function Editor({
 
         {(sidebarTab === "effects" || sidebarTab === "all") && (
           <div className="panel effects">
-          <div className="effects__head">
-            <div className="effects__titlerow">
-              <span className="panel__h">Visual Effects</span>
-              <span className="effects__badge-capcut">CapCut</span>
+            <div className="effects__head">
+              <div className="effects__titlerow">
+                <div className="effects__titlegroup">
+                  <span className="panel__h">Visual Effects</span>
+                  <span className="effects__badge-capcut">PRO FX</span>
+                </div>
+                <span className="effects__target-pill">
+                  {targetClip && !targetClip.gap
+                    ? `Clip ${selectedImageNum || (selectedIndex + 1)}`
+                    : "All Clips"}
+                </span>
+              </div>
+              <div className="effects__subdesc">
+                {targetClip && !targetClip.gap
+                  ? `${targetClip.label || targetClip.name}`
+                  : "Active clip on screen, or apply to all clips"}
+              </div>
             </div>
-            <span className="effects__target">
-              {targetClip && !targetClip.gap
-                ? `Clip ${selectedImageNum || (selectedIndex + 1)} · ${targetClip.label || targetClip.name}`
-                : "Active clip on screen, or apply to all clips"}
-            </span>
-          </div>
 
-          <div className="effects__chips">
-            {Object.values(EFFECTS).map((eff) => {
-              const on = activeSidebarEffId === eff.id;
-              return (
+            {/* Category Filter Pills */}
+            <div className="eff-filter-bar">
+              {[
+                { id: "all", label: "All", icon: "✨" },
+                { id: "popular", label: "Hot", icon: "🔥" },
+                { id: "cinematic", label: "Cinema", icon: "🎬" },
+                { id: "motion", label: "Motion", icon: "⚡" },
+                { id: "mood", label: "Mood", icon: "🌆" },
+              ].map((cat) => (
                 <button
-                  key={eff.id}
+                  key={cat.id}
                   type="button"
-                  className={`effchip ${on ? "is-on" : ""}`}
-                  onClick={() => onPickSidebarEffect(eff.id)}
-                  title={eff.description}
+                  className={`eff-filter-chip ${effFilter === cat.id ? "is-active" : ""}`}
+                  onClick={() => setEffFilter(cat.id)}
                 >
-                  <span className="effchip__icon">{eff.icon}</span>
-                  <span className="effchip__label">{eff.name}</span>
+                  <span className="eff-filter-chip__icon">{cat.icon}</span>
+                  <span>{cat.label}</span>
                 </button>
-              );
-            })}
-          </div>
-
-          {activeSidebarEffId !== "none" && (
-            <label className="trdur">
-              <span>Intensity</span>
-              <input
-                type="range"
-                min={10}
-                max={100}
-                step={5}
-                value={activeSidebarEffInt}
-                onChange={(e) => onSidebarIntensityChange(+e.target.value)}
-              />
-              <span className="trdur__val">{activeSidebarEffInt}%</span>
-            </label>
-          )}
-
-          <div className="effects__actions">
-            <button
-              type="button"
-              className="trall effects__btn-all"
-              onClick={onApplyEffectAllClips}
-              title="Apply this effect to all clips in the project"
-            >
-              Apply “{EFFECTS[activeSidebarEffId] ? EFFECTS[activeSidebarEffId].name : activeSidebarEffId}” to all clips
-            </button>
-            <div className="seg" style={{ marginTop: 8 }}>
-              <button
-                type="button"
-                onClick={onRandomMixEffects}
-                title="Randomly apply different CapCut effects across clips"
-              >
-                🎲 Random Mix
-              </button>
-              <button
-                type="button"
-                onClick={onClearAllEffects}
-                title="Remove visual effects from all clips"
-              >
-                Clear All
-              </button>
+              ))}
             </div>
-          </div>
+
+            {/* 2-Column Visual Cards Grid */}
+            <div className="effects__grid">
+              {Object.values(EFFECTS)
+                .filter((eff) => {
+                  if (effFilter === "all") return true;
+                  if (effFilter === "popular") return ["particles", "glitch", "cinema", "flash", "shake"].includes(eff.id);
+                  if (effFilter === "cinematic") return ["cinema", "grain", "vignette", "lensflare", "vintage"].includes(eff.id);
+                  if (effFilter === "motion") return ["shake", "flash", "glitch", "pulse", "lightning"].includes(eff.id);
+                  if (effFilter === "mood") return ["particles", "sunset", "neon", "noir", "vhs"].includes(eff.id);
+                  return true;
+                })
+                .map((eff) => {
+                  const on = activeSidebarEffId === eff.id;
+                  const isGold = eff.id === "particles";
+                  return (
+                    <button
+                      key={eff.id}
+                      type="button"
+                      className={`effcard ${on ? "is-on" : ""} ${isGold ? "effcard--gold" : ""}`}
+                      onClick={() => onPickSidebarEffect(eff.id)}
+                      title={eff.description}
+                    >
+                      <div className="effcard__top">
+                        <span className="effcard__avatar">{eff.icon}</span>
+                        {on ? (
+                          <span className="effcard__active-dot">● ON</span>
+                        ) : isGold ? (
+                          <span className="effcard__tag effcard__tag--gold">POPULAR</span>
+                        ) : (
+                          <span className="effcard__tag">{eff.category}</span>
+                        )}
+                      </div>
+                      <div className="effcard__body">
+                        <span className="effcard__name">{eff.name}</span>
+                        <span className="effcard__desc">{eff.description}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+            </div>
+
+            {/* Intensity Card */}
+            {activeSidebarEffId !== "none" && (
+              <div className="eff-slider-card">
+                <div className="eff-slider-card__head">
+                  <span className="eff-slider-card__title">Effect Intensity</span>
+                  <span className="eff-slider-card__badge">{activeSidebarEffInt}%</span>
+                </div>
+                <div className="eff-slider-card__track">
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    step={5}
+                    value={activeSidebarEffInt}
+                    onChange={(e) => onSidebarIntensityChange(+e.target.value)}
+                    className="eff-slider-input"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Studio Action Buttons */}
+            <div className="effects__actions">
+              <button
+                type="button"
+                className="effects__btn-all"
+                onClick={onApplyEffectAllClips}
+                title="Apply this effect to all clips in the project"
+              >
+                <span>⚡ Apply “{EFFECTS[activeSidebarEffId] ? EFFECTS[activeSidebarEffId].name : activeSidebarEffId}” to All Clips</span>
+              </button>
+              <div className="effects__actions-sub">
+                <button
+                  type="button"
+                  className="effects__btn-sub"
+                  onClick={onRandomMixEffects}
+                  title="Randomly apply different CapCut effects across clips"
+                >
+                  🎲 Random Mix
+                </button>
+                <button
+                  type="button"
+                  className="effects__btn-sub effects__btn-sub--clear"
+                  onClick={onClearAllEffects}
+                  title="Remove visual effects from all clips"
+                >
+                  ✕ Clear All
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
