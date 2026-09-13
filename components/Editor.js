@@ -1005,10 +1005,7 @@ export default function Editor({
         {(sidebarTab === "export" || sidebarTab === "all") && (
           <div className="panel export">
             <div className="effects__titlerow" style={{ marginBottom: 10 }}>
-              <div className="effects__titlegroup">
-                <span className="panel__h">Export</span>
-                <span className="effects__badge-capcut">PRO EXPORT</span>
-              </div>
+              <span className="panel__h">Export</span>
               <span className="effects__target-pill">MP4 · H.264</span>
             </div>
 
@@ -1160,20 +1157,12 @@ export default function Editor({
           <div className="panel effects">
             <div className="effects__head">
               <div className="effects__titlerow">
-                <div className="effects__titlegroup">
-                  <span className="panel__h">Visual Effects</span>
-                  <span className="effects__badge-capcut">PRO FX</span>
-                </div>
+                <span className="panel__h">Visual Effects</span>
                 <span className="effects__target-pill">
                   {targetClip && !targetClip.gap
                     ? `Clip ${selectedImageNum || (selectedIndex + 1)}`
                     : "All Clips"}
                 </span>
-              </div>
-              <div className="effects__subdesc">
-                {targetClip && !targetClip.gap
-                  ? `${targetClip.label || targetClip.name}`
-                  : "Active clip on screen, or apply to all clips"}
               </div>
             </div>
 
@@ -1296,10 +1285,7 @@ export default function Editor({
           <div className="panel transitions">
             <div className="transitions__head">
               <div className="transitions__titlerow">
-                <div className="effects__titlegroup">
-                  <span className="panel__h">Transitions</span>
-                  <span className="effects__badge-capcut">PRO BLEND</span>
-                </div>
+                <span className="panel__h">Transitions</span>
                 <button
                   type="button"
                   className={`cap-switch ${mixMode ? "is-on" : ""}`}
@@ -1508,10 +1494,7 @@ export default function Editor({
         {(sidebarTab === "motion" || sidebarTab === "all") && (
           <div className="panel motion-panel">
             <div className="effects__titlerow" style={{ marginBottom: 10 }}>
-              <div className="effects__titlegroup">
-                <span className="panel__h">Motion &amp; Zoom</span>
-                <span className="effects__badge-capcut">KEN BURNS</span>
-              </div>
+              <span className="panel__h">Motion &amp; Zoom</span>
               <span className="effects__target-pill">Dynamic Camera</span>
             </div>
 
@@ -1626,10 +1609,7 @@ export default function Editor({
         {(sidebarTab === "captions" || sidebarTab === "all") && (
           <div className="panel captions">
             <div className="effects__titlerow" style={{ marginBottom: 10 }}>
-              <div className="effects__titlegroup">
-                <span className="panel__h">Captions</span>
-                <span className="effects__badge-capcut">VIRAL SUBTITLES</span>
-              </div>
+              <span className="panel__h">Captions</span>
               <span className="effects__target-pill">Burn-in Sync</span>
             </div>
             {!(captionCues && captionCues.length) ? (
@@ -1832,10 +1812,7 @@ export default function Editor({
         {(sidebarTab === "audio" || sidebarTab === "all") && (
           <div className="panel audio-panel">
             <div className="effects__titlerow" style={{ marginBottom: 10 }}>
-              <div className="effects__titlegroup">
-                <span className="panel__h">Audio &amp; Music</span>
-                <span className="effects__badge-capcut">DAW MIXER</span>
-              </div>
+              <span className="panel__h">Audio &amp; Music</span>
               <span className="effects__target-pill">A2 Stereo 44.1k</span>
             </div>
 
@@ -1945,10 +1922,7 @@ export default function Editor({
         {(sidebarTab === "watermark" || sidebarTab === "all") && (
           <div className="panel watermark-panel">
             <div className="effects__titlerow" style={{ marginBottom: 10 }}>
-              <div className="effects__titlegroup">
-                <span className="panel__h">Brand &amp; Logo</span>
-                <span className="effects__badge-capcut">PRO OVERLAY</span>
-              </div>
+              <span className="panel__h">Brand &amp; Logo</span>
               <span className="effects__target-pill">Copyright Protection</span>
             </div>
             <div className="mini-h">Overlay logo, creator handle (@name), and watermark protection.</div>
