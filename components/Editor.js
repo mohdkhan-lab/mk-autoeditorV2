@@ -1004,8 +1004,69 @@ export default function Editor({
 
         {(sidebarTab === "export" || sidebarTab === "all") && (
           <div className="panel export">
-            <h2 className="panel__h">Export</h2>
+            <div className="effects__titlerow" style={{ marginBottom: 10 }}>
+              <div className="effects__titlegroup">
+                <span className="panel__h">Export</span>
+                <span className="effects__badge-capcut">PRO EXPORT</span>
+              </div>
+              <span className="effects__target-pill">MP4 · H.264</span>
+            </div>
 
+            {/* 1-Tap Platform Preset Cards */}
+            <div className="mini-h">1-Tap Platform Presets</div>
+            <div className="export-preset-grid">
+              <button
+                type="button"
+                className={`export-preset-card ${aspect === "9:16" && fps === 30 && renderQuality === "full" ? "is-active" : ""}`}
+                onClick={() => {
+                  setAspect("9:16");
+                  setFps(30);
+                  if (setRenderQuality) setRenderQuality("full");
+                }}
+              >
+                <div className="export-preset-card__top">
+                  <span className="export-preset-card__icon">📱</span>
+                  <span className="export-preset-card__tag">9:16 VERTICAL</span>
+                </div>
+                <div className="export-preset-card__title">Shorts / Reels</div>
+                <div className="export-preset-card__desc">1080×1920 · 30fps · Full HD</div>
+              </button>
+
+              <button
+                type="button"
+                className={`export-preset-card ${aspect === "16:9" && fps === 30 && renderQuality === "full" ? "is-active" : ""}`}
+                onClick={() => {
+                  setAspect("16:9");
+                  setFps(30);
+                  if (setRenderQuality) setRenderQuality("full");
+                }}
+              >
+                <div className="export-preset-card__top">
+                  <span className="export-preset-card__icon">🎬</span>
+                  <span className="export-preset-card__tag">16:9 WIDE</span>
+                </div>
+                <div className="export-preset-card__title">YouTube Cinema</div>
+                <div className="export-preset-card__desc">1920×1080 · 30fps · Standard</div>
+              </button>
+
+              <button
+                type="button"
+                className={`export-preset-card ${renderQuality === "720p" ? "is-active" : ""}`}
+                onClick={() => {
+                  if (setRenderQuality) setRenderQuality("720p");
+                  setFps(24);
+                }}
+              >
+                <div className="export-preset-card__top">
+                  <span className="export-preset-card__icon">⚡</span>
+                  <span className="export-preset-card__tag">DRAFT 720p</span>
+                </div>
+                <div className="export-preset-card__title">Fast Preview</div>
+                <div className="export-preset-card__desc">3× Faster Export · 24fps</div>
+              </button>
+            </div>
+
+            <div className="mini-h" style={{ marginTop: 12 }}>Fine-tune Settings</div>
             <div className="ctrl-row">
               <label className="ctrl">
                 <span className="ctrl__label">Aspect</span>
@@ -1039,9 +1100,9 @@ export default function Editor({
 
             <dl className="specs">
               <div className="spec"><dt>Resolution</dt><dd>{(renderDims || dims).width}×{(renderDims || dims).height}{renderQuality === "720p" ? " · faster" : ""}</dd></div>
-              <div className="spec"><dt>Images</dt><dd>{imageCount}</dd></div>
+              <div className="spec"><dt>Images / Cuts</dt><dd>{imageCount} clips</dd></div>
               <div className="spec spec--length">
-                <dt>Length</dt>
+                <dt>Runtime</dt>
                 <dd>
                   {tc(exportDuration)}
                   {exportDuration < duration && (
@@ -1059,15 +1120,17 @@ export default function Editor({
 
             {!(busy || wcBusy) ? (
               (wcAvailable || serverAvailable) ? (
-                <>
+                <div style={{ marginTop: 12 }}>
                   <button
                     className="render"
                     onClick={wcAvailable ? onWebCodecsTest : onRender}
-                  >Render MP4</button>
-                  <div style={{ fontSize: "11px", color: "#10b981", textAlign: "center", marginTop: "4px", fontWeight: "600", letterSpacing: "0.02em" }}>
-                    ● v2.1 Engine (Anti-Freeze Active)
+                  >
+                    🚀 Render &amp; Export MP4
+                  </button>
+                  <div style={{ fontSize: "11px", color: "#10b981", textAlign: "center", marginTop: "5px", fontWeight: "600", letterSpacing: "0.02em" }}>
+                    ● v2.1 WebCodecs Engine (Anti-Freeze Active)
                   </div>
-                </>
+                </div>
               ) : (
                 <div className="note">Rendering needs Chrome, Edge, or Safari 16.4+ (WebCodecs) in this browser.</div>
               )
@@ -1084,7 +1147,11 @@ export default function Editor({
                 <button className="cancel" onClick={wcBusy ? onWebCodecsCancel : onCancel}>Cancel</button>
               </>
             )}
-            {outUrl && <a className="download" href={outUrl} download="story.mp4">↓ Download MP4</a>}
+            {outUrl && (
+              <a className="download" href={outUrl} download="story.mp4" style={{ marginTop: 10 }}>
+                ↓ Download Final Video (MP4)
+              </a>
+            )}
             {error && <div className="note note--bad">{error}</div>}
           </div>
         )}
@@ -1229,7 +1296,10 @@ export default function Editor({
           <div className="panel transitions">
             <div className="transitions__head">
               <div className="transitions__titlerow">
-                <span className="panel__h">Transitions</span>
+                <div className="effects__titlegroup">
+                  <span className="panel__h">Transitions</span>
+                  <span className="effects__badge-capcut">PRO BLEND</span>
+                </div>
                 <button
                   type="button"
                   className={`cap-switch ${mixMode ? "is-on" : ""}`}
@@ -1246,28 +1316,75 @@ export default function Editor({
                   ? `Into image ${selectedImageNum || "—"} · ${tc(selectedClip.start)}`
                   : selectedIndex === 0
                     ? "First image — no incoming transition"
-                    : "Tap a ◇ cut above to set its transition"}
+                    : "Tap a ◇ cut above on timeline to set transition"}
               </span>
             </div>
 
-            <div className="transitions__chips">
+            {/* 2-Column Visual Motion Cards Grid */}
+            <div className="transitions__grid">
               {TRANSITION_LIST.map((tr) => {
                 const on = mixMode ? mixPicks.has(tr.id) : currentType === tr.id;
+                const meta = {
+                  cut: { tag: "INSTANT", desc: "Hard cut without blend" },
+                  fade: { tag: "SMOOTH", desc: "Cinema crossfade dissolve" },
+                  fadeblack: { tag: "CINEMA", desc: "Dip to black scene transition" },
+                  glitchcut: { tag: "VIRAL", desc: "Cyberpunk RGB chromatic slice" },
+                  spinzoom: { tag: "DYNAMIC", desc: "Rotating zoom & push impact" },
+                  whippan: { tag: "ACTION", desc: "High-speed directional whip" },
+                  circleopen: { tag: "RETRO", desc: "Circular iris reveal" },
+                  slideleft: { tag: "MOTION", desc: "Smooth lateral slide left" },
+                  slideright: { tag: "MOTION", desc: "Smooth lateral slide right" },
+                  wipeleft: { tag: "CLEAN", desc: "Directional wipe left" },
+                  wiperight: { tag: "CLEAN", desc: "Directional wipe right" },
+                }[tr.id] || { tag: "BLEND", desc: "Scene transition" };
+
                 return (
                   <button
                     key={tr.id}
                     type="button"
-                    className={`trchip ${on ? "is-on" : ""}`}
+                    className={`trcard ${on ? "is-on" : ""}`}
                     onClick={() => (mixMode ? toggleMix(tr.id) : pickType(tr.id))}
                   >
-                    <span className="trchip__icon">{tr.icon}</span>{tr.label}
+                    <div className="trcard__top">
+                      <span className="trcard__icon">{tr.icon}</span>
+                      {on ? (
+                        <span className="trcard__active-badge">● ACTIVE</span>
+                      ) : (
+                        <span className="trcard__tag">{meta.tag}</span>
+                      )}
+                    </div>
+                    <div className="trcard__body">
+                      <span className="trcard__title">{tr.label}</span>
+                      <span className="trcard__desc">{meta.desc}</span>
+                    </div>
                   </button>
                 );
               })}
             </div>
 
-            <label className="trdur">
-              <span>Duration</span>
+            {/* Transition Speed Presets + Fine-tune */}
+            <div className="tr-speed-bar">
+              <span className="mini-h" style={{ margin: 0 }}>Duration:</span>
+              <div className="tr-speed-chips">
+                {[
+                  { sec: 0.2, label: "0.2s Fast" },
+                  { sec: 0.4, label: "0.4s Cinema" },
+                  { sec: 0.8, label: "0.8s Slow" },
+                ].map((s) => (
+                  <button
+                    key={s.sec}
+                    type="button"
+                    className={`tr-speed-chip ${Math.abs(transitionDuration - s.sec) < 0.05 ? "is-active" : ""}`}
+                    onClick={() => setTransitionDuration(s.sec)}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="trdur" style={{ marginTop: 6 }}>
+              <span>Fine-tune</span>
               <input
                 type="range" min={MIN_TRANSITION_DURATION} max={MAX_TRANSITION_DURATION} step={0.05}
                 value={transitionDuration}
@@ -1278,22 +1395,22 @@ export default function Editor({
 
             {!mixMode ? (
               <button
-                type="button" className="trall"
+                type="button" className="effects__btn-all" style={{ marginTop: 10 }}
                 onClick={() => applyTransitionAll(currentType, clips.map((c) => c.name))}
               >
-                Apply “{transitionOf(currentType).label}” to all cuts
+                <span>⚡ Apply “{transitionOf(currentType).label}” to All Cuts</span>
               </button>
             ) : (
               <div className="trmix-foot">
                 <span className="trmix-count">
-                  {mixPicks.size ? `Picked ${mixPicks.size}` : "None picked"}
+                  {mixPicks.size ? `Picked ${mixPicks.size} styles` : "None picked"}
                 </span>
                 <button
                   type="button" className="trall trmix-apply"
                   disabled={mixPicks.size === 0}
                   onClick={() => applyTransitionMix([...mixPicks], clips.map((c) => c.name))}
                 >
-                  Apply random mix to video
+                  Apply Random Mix to Video
                 </button>
               </div>
             )}
@@ -1389,46 +1506,132 @@ export default function Editor({
         )}
 
         {(sidebarTab === "motion" || sidebarTab === "all") && (
-          <>
-            <div className="panel">
-              <h2 className="panel__h">Motion — Ken Burns zoom</h2>
-              <div className="mini-h">Click an image on the timeline to set its zoom. Set the depth, or apply to all here.</div>
-              <label className="trdur">
-                <span>Zoom depth</span>
-                <input type="range" min={0.02} max={0.2} step={0.01} value={motionAmount}
-                  onChange={(e) => setMotionAmount(+e.target.value)} />
-                <span className="trdur__val">{Math.round(motionAmount * 100)}%</span>
-              </label>
-              <div className="seg" style={{ marginTop: 8 }}>
-                <button type="button" onClick={() => applyMotionAll("zoomin", imageClips.map((c) => c.name))}>Zoom in all</button>
-                <button type="button" onClick={() => applyMotionAll("zoomout", imageClips.map((c) => c.name))}>Zoom out all</button>
+          <div className="panel motion-panel">
+            <div className="effects__titlerow" style={{ marginBottom: 10 }}>
+              <div className="effects__titlegroup">
+                <span className="panel__h">Motion &amp; Zoom</span>
+                <span className="effects__badge-capcut">KEN BURNS</span>
               </div>
-              <div className="seg" style={{ marginTop: 6 }}>
-                <button type="button" onClick={() => applyMotionAlternate(imageClips.map((c) => c.name))}>Alternate</button>
-                <button type="button" onClick={() => applyMotionAll("none", imageClips.map((c) => c.name))}>Clear</button>
-              </div>
+              <span className="effects__target-pill">Dynamic Camera</span>
             </div>
 
-            <div className="panel">
-              <h2 className="panel__h">Scene fades</h2>
-              <div className="mini-h">Fade the opening and ending (video &amp; audio).</div>
-              <label className="trdur">
-                <span>Fade in</span>
-                <input type="range" min={0} max={2} step={0.1} value={fadeIn} onChange={(e) => setFadeIn(+e.target.value)} />
-                <span className="trdur__val">{fadeIn > 0 ? `${fadeIn.toFixed(1)}s` : "off"}</span>
-              </label>
-              <label className="trdur">
-                <span>Fade out</span>
-                <input type="range" min={0} max={2} step={0.1} value={fadeOut} onChange={(e) => setFadeOut(+e.target.value)} />
-                <span className="trdur__val">{fadeOut > 0 ? `${fadeOut.toFixed(1)}s` : "off"}</span>
-              </label>
+            <div className="mini-h">Camera Direction (Apply to All Clips)</div>
+            <div className="motion-grid">
+              {[
+                { id: "zoomin", name: "Push In", icon: "🔍", tag: "FOCUS", desc: "Smooth camera push in", action: () => applyMotionAll("zoomin", imageClips.map((c) => c.name)) },
+                { id: "zoomout", name: "Pull Out", icon: "🔭", tag: "REVEAL", desc: "Expansive camera pull back", action: () => applyMotionAll("zoomout", imageClips.map((c) => c.name)) },
+                { id: "alternate", name: "Alternate", icon: "🔀", tag: "CINEMA", desc: "Alternates in & out", action: () => applyMotionAlternate(imageClips.map((c) => c.name)) },
+                { id: "none", name: "Static", icon: "⏸", tag: "LOCKED", desc: "Fixed frame without motion", action: () => applyMotionAll("none", imageClips.map((c) => c.name)) },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className="motion-card"
+                  onClick={m.action}
+                >
+                  <div className="motion-card__top">
+                    <span className="motion-card__icon">{m.icon}</span>
+                    <span className="motion-card__tag">{m.tag}</span>
+                  </div>
+                  <div className="motion-card__title">{m.name}</div>
+                  <div className="motion-card__desc">{m.desc}</div>
+                </button>
+              ))}
             </div>
-          </>
+
+            {/* Zoom Depth Card */}
+            <div className="eff-slider-card" style={{ marginTop: 12 }}>
+              <div className="eff-slider-card__head">
+                <span className="eff-slider-card__title">Zoom Depth</span>
+                <span className="eff-slider-card__badge">{Math.round(motionAmount * 100)}%</span>
+              </div>
+              <div className="tr-speed-chips" style={{ marginBottom: 8 }}>
+                {[
+                  { pct: 0.05, label: "5% Subtle" },
+                  { pct: 0.10, label: "10% Cinema" },
+                  { pct: 0.18, label: "18% Dramatic" },
+                ].map((p) => (
+                  <button
+                    key={p.pct}
+                    type="button"
+                    className={`tr-speed-chip ${Math.abs(motionAmount - p.pct) < 0.02 ? "is-active" : ""}`}
+                    onClick={() => setMotionAmount(p.pct)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="range" min={0.02} max={0.2} step={0.01}
+                value={motionAmount}
+                onChange={(e) => setMotionAmount(+e.target.value)}
+                className="eff-slider-input"
+              />
+            </div>
+
+            {/* Scene Fades Dual Cards */}
+            <div className="mini-h" style={{ marginTop: 14 }}>Scene Fades (Video &amp; Audio Dissolve)</div>
+            <div className="fades-grid">
+              <div className="fade-card">
+                <div className="fade-card__head">
+                  <span className="fade-card__title">Intro Fade-In</span>
+                  <span className="fade-card__badge">{fadeIn > 0 ? `${fadeIn.toFixed(1)}s` : "Off"}</span>
+                </div>
+                <div className="tr-speed-chips" style={{ marginBottom: 6 }}>
+                  {[0, 0.5, 1.0].map((sec) => (
+                    <button
+                      key={sec}
+                      type="button"
+                      className={`tr-speed-chip ${Math.abs(fadeIn - sec) < 0.1 ? "is-active" : ""}`}
+                      onClick={() => setFadeIn(sec)}
+                    >
+                      {sec === 0 ? "Off" : `${sec}s`}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="range" min={0} max={2} step={0.1}
+                  value={fadeIn} onChange={(e) => setFadeIn(+e.target.value)}
+                  className="eff-slider-input"
+                />
+              </div>
+
+              <div className="fade-card">
+                <div className="fade-card__head">
+                  <span className="fade-card__title">Outro Fade-Out</span>
+                  <span className="fade-card__badge">{fadeOut > 0 ? `${fadeOut.toFixed(1)}s` : "Off"}</span>
+                </div>
+                <div className="tr-speed-chips" style={{ marginBottom: 6 }}>
+                  {[0, 0.5, 1.0].map((sec) => (
+                    <button
+                      key={sec}
+                      type="button"
+                      className={`tr-speed-chip ${Math.abs(fadeOut - sec) < 0.1 ? "is-active" : ""}`}
+                      onClick={() => setFadeOut(sec)}
+                    >
+                      {sec === 0 ? "Off" : `${sec}s`}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="range" min={0} max={2} step={0.1}
+                  value={fadeOut} onChange={(e) => setFadeOut(+e.target.value)}
+                  className="eff-slider-input"
+                />
+              </div>
+            </div>
+          </div>
         )}
 
         {(sidebarTab === "captions" || sidebarTab === "all") && (
           <div className="panel captions">
-            <h2 className="panel__h">Captions</h2>
+            <div className="effects__titlerow" style={{ marginBottom: 10 }}>
+              <div className="effects__titlegroup">
+                <span className="panel__h">Captions</span>
+                <span className="effects__badge-capcut">VIRAL SUBTITLES</span>
+              </div>
+              <span className="effects__target-pill">Burn-in Sync</span>
+            </div>
             {!(captionCues && captionCues.length) ? (
               <div className="cap-empty">
                 <button type="button" className="cap-upload" onClick={() => capInputRef.current && capInputRef.current.click()}>
@@ -1500,18 +1703,37 @@ export default function Editor({
                 )}
 
                 <div className="cap-body" aria-disabled={!captionsOn}>
-                  <div className="mini-h">Style</div>
-                  <div className="transitions__chips">
-                    {CAPTION_STYLE_LIST.map((st) => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        className={`trchip ${captionStyle === st.id ? "is-on" : ""}`}
-                        onClick={() => setCaptionStyle(st.id)}
-                      >
-                        {st.label}
-                      </button>
-                    ))}
+                  <div className="mini-h">Subtitle Style (Viral Preset Gallery)</div>
+                  <div className="cap-style-grid">
+                    {CAPTION_STYLE_LIST.map((st) => {
+                      const on = captionStyle === st.id;
+                      return (
+                        <button
+                          key={st.id}
+                          type="button"
+                          className={`cap-style-card ${on ? "is-active" : ""}`}
+                          onClick={() => setCaptionStyle(st.id)}
+                        >
+                          <div className="cap-style-card__preview">
+                            {st.id === "mrbeast" && <span style={{ color: "#ffea00", textShadow: "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000", fontWeight: 900, fontSize: "11px", letterSpacing: "0.05em" }}>MRBEAST</span>}
+                            {st.id === "hormozi" && <span style={{ color: "#ccff00", textShadow: "1px 1px 0 #000", fontWeight: 900, fontSize: "11px" }}>HORMOZI</span>}
+                            {st.id === "vox" && <span style={{ background: "#000", color: "#ffea00", padding: "1px 5px", borderRadius: 3, fontWeight: 800, fontSize: "10px" }}>VOX TAG</span>}
+                            {st.id === "karaoke" && <span style={{ color: "#fbbf24", textShadow: "0 0 8px rgba(251,191,36,0.9)", fontWeight: 800, fontSize: "11px" }}>KARAOKE</span>}
+                            {st.id === "cyberpunk" && <span style={{ color: "#00f2fe", textShadow: "0 0 8px #00f2fe", fontWeight: 800, fontSize: "11px" }}>CYBER</span>}
+                            {st.id === "neon" && <span style={{ color: "#22c55e", textShadow: "0 0 8px #22c55e", fontWeight: 800, fontSize: "11px" }}>NEON</span>}
+                            {st.id === "netflix" && <span style={{ background: "rgba(15,18,24,0.85)", color: "#fff", padding: "1px 5px", borderRadius: 3, fontWeight: 600, fontSize: "10px" }}>CINEMA</span>}
+                            {st.id === "gadzhi" && <span style={{ color: "#f59e0b", fontStyle: "italic", fontWeight: 800, fontSize: "11px" }}>LUXURY</span>}
+                            {st.id === "abdaal" && <span style={{ background: "rgba(15,23,42,0.85)", color: "#38bdf8", padding: "1px 5px", borderRadius: 3, fontWeight: 600, fontSize: "10px" }}>ABDAAL</span>}
+                            {st.id === "comic" && <span style={{ color: "#ff2d55", textShadow: "1px 1px 0 #000", fontWeight: 900, fontSize: "11px" }}>COMIC!</span>}
+                            {st.id === "yellow" && <span style={{ color: "#ffea00", textShadow: "1px 1px 0 #000", fontWeight: 700, fontSize: "11px" }}>YELLOW</span>}
+                            {st.id === "boxed" && <span style={{ background: "rgba(0,0,0,0.7)", color: "#fff", padding: "1px 4px", borderRadius: 3, fontSize: "10px" }}>BOXED</span>}
+                            {st.id === "fire" && <span style={{ color: "#ff3b30", textShadow: "0 0 8px #ff3b30", fontWeight: 800, fontSize: "11px" }}>FIRE</span>}
+                            {st.id === "classic" && <span style={{ color: "#fff", textShadow: "1px 1px 0 #000", fontWeight: 700, fontSize: "11px" }}>CLASSIC</span>}
+                          </div>
+                          <span className="cap-style-card__name">{st.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <div className="mini-h" style={{ marginTop: 12 }}>Font Family (Viral Creator Fonts)</div>
@@ -1609,11 +1831,36 @@ export default function Editor({
 
         {(sidebarTab === "audio" || sidebarTab === "all") && (
           <div className="panel audio-panel">
-            <h2 className="panel__h">Audio &amp; Background Music</h2>
-            <div className="mini-h">A2 Background Music track with intelligent auto-ducking.</div>
+            <div className="effects__titlerow" style={{ marginBottom: 10 }}>
+              <div className="effects__titlegroup">
+                <span className="panel__h">Audio &amp; Music</span>
+                <span className="effects__badge-capcut">DAW MIXER</span>
+              </div>
+              <span className="effects__target-pill">A2 Stereo 44.1k</span>
+            </div>
+
+            {/* Studio Equalizer Spectrum Visualizer */}
+            <div className="audio-eq-card">
+              <div className="audio-eq-head">
+                <span className="audio-eq-title">Master Audio Spectrum</span>
+                <span className="audio-eq-badge">{bgmFile ? "TRACK ACTIVE" : "VOICEOVER SYNC"}</span>
+              </div>
+              <div className="audio-eq-bars">
+                {[12, 28, 45, 68, 85, 92, 70, 54, 82, 95, 64, 40, 22, 14].map((h, i) => (
+                  <div
+                    key={i}
+                    className="audio-eq-bar"
+                    style={{
+                      height: `${h}%`,
+                      animationDelay: `${(i * 0.08).toFixed(2)}s`,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
 
             {!bgmFile ? (
-              <div className="cap-empty" style={{ marginTop: 10 }}>
+              <div className="cap-empty" style={{ marginTop: 12 }}>
                 <button
                   type="button"
                   className="cap-upload"
@@ -1627,12 +1874,12 @@ export default function Editor({
               </div>
             ) : (
               <>
-                <div className="cap-bar" style={{ marginTop: 10 }}>
+                <div className="cap-bar" style={{ marginTop: 12 }}>
                   <span className="cap-meta" style={{ flex: 1 }}>
                     <strong style={{ color: "#fff", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {bgmFile.name}
                     </strong>
-                    <span>A2 Music Track</span>
+                    <span>A2 Stereo · Background Score</span>
                   </span>
                   <button
                     type="button"
@@ -1652,7 +1899,7 @@ export default function Editor({
                   </button>
                 </div>
 
-                <div className="mini-h" style={{ marginTop: 14 }}>Music Volume</div>
+                <div className="mini-h" style={{ marginTop: 14 }}>Music Volume Level</div>
                 <label className="trdur">
                   <input
                     type="range" min={0.05} max={1} step={0.05}
@@ -1662,20 +1909,33 @@ export default function Editor({
                   <span className="trdur__val">{Math.round(bgmVolume * 100)}%</span>
                 </label>
 
-                <div className="mini-h" style={{ marginTop: 14 }}>Auto-Ducking</div>
-                <div className="cap-bar">
+                <div className="mini-h" style={{ marginTop: 14 }}>Intelligent Auto-Ducking</div>
+                <div className="ducking-presets-grid">
                   <button
                     type="button"
-                    className={`cap-switch ${bgmDucking ? "is-on" : ""}`}
-                    onClick={() => setBgmDucking && setBgmDucking(!bgmDucking)}
-                    aria-pressed={bgmDucking}
+                    className={`ducking-card ${bgmDucking ? "is-active" : ""}`}
+                    onClick={() => setBgmDucking && setBgmDucking(true)}
                   >
-                    <span className="cap-switch__box" />
-                    {bgmDucking ? "On" : "Off"}
+                    <div className="ducking-card__top">
+                      <span>🎙️</span>
+                      <span className="ducking-card__tag">RECOMMENDED</span>
+                    </div>
+                    <div className="ducking-card__title">Voiceover Priority</div>
+                    <div className="ducking-card__desc">Drops 85% during speech</div>
                   </button>
-                  <span className="cap-meta">
-                    Lowers music volume by 85% during voiceover so speech remains crisp and clear.
-                  </span>
+
+                  <button
+                    type="button"
+                    className={`ducking-card ${!bgmDucking ? "is-active" : ""}`}
+                    onClick={() => setBgmDucking && setBgmDucking(false)}
+                  >
+                    <div className="ducking-card__top">
+                      <span>🔊</span>
+                      <span className="ducking-card__tag">FULL</span>
+                    </div>
+                    <div className="ducking-card__title">Constant Volume</div>
+                    <div className="ducking-card__desc">Music plays steady throughout</div>
+                  </button>
                 </div>
               </>
             )}
@@ -1684,11 +1944,17 @@ export default function Editor({
 
         {(sidebarTab === "watermark" || sidebarTab === "all") && (
           <div className="panel watermark-panel">
-            <h2 className="panel__h">Watermark &amp; Branding</h2>
-            <div className="mini-h">Overlay logo, channel handle (@name), and watermark protection.</div>
+            <div className="effects__titlerow" style={{ marginBottom: 10 }}>
+              <div className="effects__titlegroup">
+                <span className="panel__h">Brand &amp; Logo</span>
+                <span className="effects__badge-capcut">PRO OVERLAY</span>
+              </div>
+              <span className="effects__target-pill">Copyright Protection</span>
+            </div>
+            <div className="mini-h">Overlay logo, creator handle (@name), and watermark protection.</div>
 
             {/* 1. Logo Image Section */}
-            <div className="mini-h" style={{ marginTop: 12 }}>Logo Image</div>
+            <div className="mini-h" style={{ marginTop: 12 }}>Logo Asset</div>
             {!watermarkFile ? (
               <div className="cap-empty" style={{ marginTop: 6 }}>
                 <button
@@ -1709,7 +1975,7 @@ export default function Editor({
                     <strong style={{ color: "#fff", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {watermarkFile.name}
                     </strong>
-                    <span>Logo Overlay</span>
+                    <span>Logo Graphic</span>
                   </span>
                   <button
                     type="button"
@@ -1824,30 +2090,76 @@ export default function Editor({
               <span className="wm-toggle-badge">{watermarkFadeIn ? "ON" : "OFF"}</span>
             </button>
 
-            {/* 4. Position Grid (7 Alignment Options) */}
-            <div className="mini-h" style={{ marginTop: 14 }}>Position (7 Screen Alignments)</div>
-            <div className="pos-grid">
-              {[
-                { id: "top-left", label: "↖ Top Left" },
-                { id: "top-center", label: "↑ Top Center" },
-                { id: "top-right", label: "↗ Top Right" },
-                { id: "center", label: "⏺ Center (Copyright)", span3: true },
-                { id: "bottom-left", label: "↙ Bottom Left" },
-                { id: "bottom-center", label: "↓ Bottom Center" },
-                { id: "bottom-right", label: "↘ Bottom Right" },
-              ].map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`pos-btn ${p.span3 ? "pos-btn--span3" : ""} ${watermarkPos === p.id ? "is-active" : ""}`}
-                  onClick={() => {
-                    if (setWatermarkPos) setWatermarkPos(p.id);
-                    if (drawRef.current) drawRef.current(timeRef.current);
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
+            {/* 4. Interactive 9-Point Visual Monitor Screen */}
+            <div className="mini-h" style={{ marginTop: 14 }}>Screen Placement (Interactive Monitor)</div>
+            <div className="pos-monitor-box">
+              <div className="pos-monitor-screen">
+                <div className="pos-monitor-row">
+                  <button
+                    type="button"
+                    className={`pos-node ${watermarkPos === "top-left" ? "is-active" : ""}`}
+                    onClick={() => { if (setWatermarkPos) setWatermarkPos("top-left"); if (drawRef.current) drawRef.current(timeRef.current); }}
+                    title="Top Left"
+                  >
+                    <span>↖</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`pos-node ${watermarkPos === "top-center" ? "is-active" : ""}`}
+                    onClick={() => { if (setWatermarkPos) setWatermarkPos("top-center"); if (drawRef.current) drawRef.current(timeRef.current); }}
+                    title="Top Center"
+                  >
+                    <span>↑</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`pos-node ${watermarkPos === "top-right" ? "is-active" : ""}`}
+                    onClick={() => { if (setWatermarkPos) setWatermarkPos("top-right"); if (drawRef.current) drawRef.current(timeRef.current); }}
+                    title="Top Right"
+                  >
+                    <span>↗</span>
+                  </button>
+                </div>
+                <div className="pos-monitor-row pos-monitor-row--mid">
+                  <button
+                    type="button"
+                    className={`pos-node pos-node--center ${watermarkPos === "center" ? "is-active" : ""}`}
+                    onClick={() => { if (setWatermarkPos) setWatermarkPos("center"); if (drawRef.current) drawRef.current(timeRef.current); }}
+                    title="Center Copyright"
+                  >
+                    <span>⏺ Center</span>
+                  </button>
+                </div>
+                <div className="pos-monitor-row">
+                  <button
+                    type="button"
+                    className={`pos-node ${watermarkPos === "bottom-left" ? "is-active" : ""}`}
+                    onClick={() => { if (setWatermarkPos) setWatermarkPos("bottom-left"); if (drawRef.current) drawRef.current(timeRef.current); }}
+                    title="Bottom Left"
+                  >
+                    <span>↙</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`pos-node ${watermarkPos === "bottom-center" ? "is-active" : ""}`}
+                    onClick={() => { if (setWatermarkPos) setWatermarkPos("bottom-center"); if (drawRef.current) drawRef.current(timeRef.current); }}
+                    title="Bottom Center"
+                  >
+                    <span>↓</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`pos-node ${watermarkPos === "bottom-right" ? "is-active" : ""}`}
+                    onClick={() => { if (setWatermarkPos) setWatermarkPos("bottom-right"); if (drawRef.current) drawRef.current(timeRef.current); }}
+                    title="Bottom Right"
+                  >
+                    <span>↘</span>
+                  </button>
+                </div>
+              </div>
+              <div className="pos-monitor-caption">
+                Target: <strong>{watermarkPos.replace("-", " ").toUpperCase()}</strong>
+              </div>
             </div>
 
             {/* 5. Margin & Size Sliders */}
