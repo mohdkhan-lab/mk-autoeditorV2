@@ -1291,66 +1291,317 @@ button:focus-visible, .dz:focus-visible, a:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 
-/* ---------- Responsive ---------- */
-@media (max-width: 860px) {
-  /* Below tablet: drop the fixed-viewport shell and scroll the page. */
+/* ---------- Universal Responsive Layout (Mobile & Desktop Studio) ---------- */
+@media (max-width: 1024px) {
+  /* Tablet & Compact Laptops: Switch from 2-column grid to vertical studio stack */
   .app { height: auto; min-height: 100dvh; }
   .content { display: block; }
-  .editor { display: flex; flex-direction: column; }
-  .side { overflow: visible; }
-  .viewer { flex: none; }
-  .viewer__frame { flex: none; aspect-ratio: 16 / 9; }
-  .onboard__zones { grid-template-columns: 1fr; }
-
-  /* Touch has no hover: keep tap targets visible/large. */
-  .thumb__x { opacity: 1; }
-  .cut { width: 26px; height: 26px; font-size: 13px; }
-  .clip__plus { font-size: 22px; }
+  .editor {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: auto;
+    width: 100%;
+  }
+  .main { width: 100%; height: auto; }
+  .viewer { flex: none; min-height: 280px; width: 100%; }
+  .side {
+    width: 100%;
+    overflow: visible;
+    padding-right: 0;
+    max-height: none;
+  }
 }
 
-/* Phones: turn the timeline into a horizontally scrollable editor track so
-   clips stay legible and tappable instead of collapsing into slivers. */
-@media (max-width: 640px) {
-  .tl { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; padding-bottom: 10px; }
-  /* Phones get a bigger floor so even sparse timelines are finger-friendly. */
-  .tl__row { min-width: max(var(--tl-min, 0px), 680px); }
-  .tl__track { touch-action: pan-x; cursor: pointer; }
-  .tl__lane--video, .tl__tag { height: 78px; }
-  .clip__meta { font-size: 11px; }
-  /* Touch has no hover — keep the resize grip visible. */
-  .clip__resize::after { opacity: 1; }
+@media (max-width: 768px) {
+  /* Mobile Phones & Phablets (< 768px): Seamless touch editing experience */
+  .app {
+    padding: 6px;
+    height: auto;
+    min-height: 100dvh;
+    gap: 8px;
+  }
+  .content { display: block; }
 
-  /* Header: drop the decorative tag; the two import chips share their own row,
-     each shrinking and truncating so they stay side-by-side instead of stacking
-     full-width or running off-screen. */
-  .bar { padding: 10px 12px; }
+  /* Top Navigation */
+  .nav {
+    padding: 6px 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-radius: 10px;
+  }
+  .nav__brand { gap: 8px; }
   .brand__tag { display: none; }
-  /* Main nav stays on ONE row: smaller brand + icon-only links + storage ring. */
-  .nav { flex-wrap: nowrap; padding: 10px 12px; gap: 9px; }
-  .nav__brand { min-width: 0; flex: 0 1 auto; }
-  .nav__brand .brand__name { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .nav__links { flex-wrap: nowrap; gap: 8px; flex: none; }
-  /* Smaller storage ring on phones (applies to the landing too). */
-  .stor__badge { width: 34px; height: 34px; }
-  .stor__num { font-size: 9.5px; }
-  /* Import chips take their own full-width row. */
-  .bar__io { width: 100%; flex-wrap: nowrap; }
-  .bar__io > .dz { flex: 1; min-width: 0; }
-  .dz--compact .dz__title { max-width: none; }
+  .brand__name { font-size: 14px; }
+  .brand__ver { font-size: 9.5px; padding: 2px 5px; }
+  .nav__links { gap: 6px; }
+  .stor__badge { width: 32px; height: 32px; }
+  .stor__num { font-size: 9px; }
 
-  /* Transport: without the spacer the controls flow and wrap naturally, so the
-     "now image" chip drops to its own line instead of being clipped. */
-  .transport { flex-wrap: wrap; row-gap: 8px; }
-  .transport__spacer { display: none; }
-  .history { margin-right: 0; }
-  .nowclip { max-width: none; }
+  /* Project Sub-bar */
+  .projbar {
+    padding: 4px 6px;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .projbar__id {
+    gap: 6px;
+    max-width: 65%;
+  }
+  .brand__back {
+    padding: 4px 9px;
+    font-size: 11px;
+  }
+  .brand__proj-badge {
+    padding: 4px 9px;
+    font-size: 12px;
+    max-width: 160px;
+  }
+  .bar__io {
+    width: 100%;
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+    justify-content: space-between;
+  }
+  .bar__io .dz--compact {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+  .dz--compact .dz__icon { width: 22px; height: 22px; font-size: 11px; }
 
-  /* Inspector modal: use more of the narrow screen and stack the actions into
-     full-width buttons instead of cramming them side-by-side. */
-  .modal { padding: 12px; }
-  .modal__card { padding: 14px; }
-  .modal__actions { flex-direction: column; }
-  .mbtn { min-width: 0; }
+  /* Video Monitor (Player) */
+  .viewer {
+    flex: none;
+    min-height: 220px;
+    padding: 8px;
+    border-radius: 12px;
+    width: 100%;
+  }
+  .main.is-theater .viewer {
+    min-height: 380px;
+  }
+  .viewer__top-bar {
+    padding: 2px 2px 6px;
+    gap: 6px;
+  }
+  .viewer__top-left, .viewer__top-right {
+    gap: 6px;
+  }
+  .viewer__aspect-pill {
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+  .viewer__dim-chip, .viewer__fps-chip {
+    display: none; /* Hidden on small screens to save valuable horizontal space */
+  }
+  .viewer__theater-btn {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+  .viewer__frame {
+    border-radius: 8px;
+    max-height: 50vh;
+    min-height: 180px;
+  }
+
+  /* Playback HUD & Transport Controls */
+  .hud-dock {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 100%;
+  }
+  .hud-time {
+    font-size: 12px;
+  }
+  .hud-controls {
+    gap: 8px;
+  }
+  .hud-step {
+    width: 34px;
+    height: 34px;
+    font-size: 13px;
+    touch-action: manipulation;
+  }
+  .hud-play {
+    width: 44px;
+    height: 44px;
+    font-size: 15px;
+    touch-action: manipulation;
+  }
+  .hud-extra {
+    gap: 5px;
+  }
+  .hud-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    max-width: 90px;
+  }
+
+  /* Touch-Optimized Timeline */
+  .tl {
+    padding: 8px 10px 10px;
+    border-radius: 12px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .tl__row {
+    min-width: max(var(--tl-min, 0px), 640px);
+  }
+  .tl__track {
+    touch-action: pan-x;
+    cursor: pointer;
+  }
+  .tl__lane--video {
+    height: 48px;
+  }
+  .tl__lane--audio {
+    height: 28px;
+    margin-top: 4px;
+  }
+  .tl__tag {
+    height: 48px;
+    width: 20px;
+    font-size: 9.5px;
+  }
+  .tl__tag--audio {
+    height: 28px;
+  }
+  .clip__meta {
+    font-size: 10px;
+  }
+  .clip__resize::after {
+    opacity: 1; /* Always visible for touch */
+  }
+
+  /* Mobile Sidebar & CapCut Tool Dock */
+  .side {
+    width: 100%;
+    padding-right: 0;
+    overflow: visible;
+  }
+  .side__tabs-dock {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(12, 14, 20, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 4px;
+    border-radius: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .side__tabs-dock::-webkit-scrollbar { display: none; }
+  .side__tabs-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .side__tabs-grid::-webkit-scrollbar { display: none; }
+  .sidetab {
+    flex: 0 0 auto;
+    min-width: 66px;
+    padding: 6px 8px;
+    border-radius: 8px;
+  }
+  .sidetab__icon { font-size: 13px; }
+  .sidetab__text { font-size: 9.5px; }
+
+  /* Tool Panels & Grids */
+  .panel {
+    padding: 12px;
+    border-radius: 12px;
+  }
+  .eff-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .tr-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .cap-preset-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+  }
+  .cap-anim-seg {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+  .wm-pos-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  /* Onboarding / Landing page */
+  .onboard__zones { grid-template-columns: 1fr; }
+  .thumb__x { opacity: 1; }
+  .cut { width: 28px; height: 28px; font-size: 13px; }
+
+  /* Modals */
+  .modal { padding: 10px; }
+  .modal__card { padding: 12px; border-radius: 12px; width: 100%; max-width: 96vw; }
+  .modal__actions { flex-direction: column; gap: 8px; }
+  .mbtn { width: 100%; }
+}
+
+@media (max-width: 480px) {
+  /* Compact Smartphones (iPhone SE, small Androids) */
+  .nav { padding: 5px 8px; }
+  .nav__brand .brand__name { font-size: 13px; }
+  .brand__proj-badge { max-width: 130px; }
+
+  .hud-dock {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+  .hud-time {
+    width: 100%;
+    justify-content: center;
+  }
+  .hud-controls {
+    gap: 12px;
+  }
+  .hud-extra {
+    width: 100%;
+    justify-content: center;
+    gap: 6px;
+  }
+  .hud-badge {
+    max-width: 120px;
+  }
+
+  .cap-anim-seg {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .effects__actions-sub {
+    grid-template-columns: 1fr;
+  }
+  .cap-preset-tile {
+    padding: 8px 2px 6px;
+  }
+  .cap-preset-tile__preview {
+    height: 30px;
+  }
+  .cap-preset-tile__aa {
+    font-size: 15px;
+  }
+  .cap-preset-tile__name {
+    font-size: 9px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1516,19 +1767,7 @@ button:focus-visible, .dz:focus-visible, a:focus-visible {
   .ph__grid { grid-template-columns: 1fr 1fr; gap: 14px; }
 }
 
-.brand__back {
-  border: 1px solid var(--line); background: var(--panel); color: var(--text);
-  width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 16px;
-  line-height: 1; display: inline-flex; align-items: center; justify-content: center;
-  margin-right: 4px; flex: none;
-}
-.brand__back:hover { border-color: var(--accent); color: var(--accent); }
-.brand__proj {
-  background: none; border: none; color: var(--text); font: inherit; font-weight: 700;
-  cursor: pointer; padding: 2px 4px; border-radius: 6px; max-width: 220px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.brand__proj:hover { background: var(--elev); }
+
 
 /* ---- Themed dialog (replaces browser alert / prompt / confirm) ----------
    NB: prefixed `dlg` to avoid the clip-inspector's own `.modal` classes. */
