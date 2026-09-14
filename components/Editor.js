@@ -75,6 +75,7 @@ export default function Editor({
   const audioRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isEditingCaptions, setIsEditingCaptions] = useState(false);
+  const [isTheater, setIsTheater] = useState(false);
 
   const toggleFullscreen = useCallback(() => {
     const el = viewerFrameRef.current;
@@ -887,8 +888,43 @@ export default function Editor({
 
   return (
     <section className="editor">
-      <div className="main">
+      <div className={`main ${isTheater ? "is-theater" : ""}`}>
         <div className="viewer">
+          {/* CapCut Studio Header: Quick Aspect Switcher, Specs & Theater Expansion */}
+          <div className="viewer__top-bar">
+            <div className="viewer__top-left">
+              <div className="viewer__aspect-pill" title="Change Video Aspect Ratio">
+                <span className="viewer__aspect-icon">
+                  {aspect === "9:16" ? "📱" : aspect === "1:1" ? "⏹️" : aspect === "4:5" ? "📷" : "🎬"}
+                </span>
+                <select
+                  className="viewer__aspect-dropdown"
+                  value={aspect}
+                  onChange={(e) => setAspect && setAspect(e.target.value)}
+                  title="Switch Aspect Ratio (16:9 YouTube, 9:16 Shorts/Reels/TikTok, 1:1, 4:5)"
+                >
+                  <option value="16:9">16:9 Landscape (YouTube)</option>
+                  <option value="9:16">9:16 Vertical (Shorts/Reels)</option>
+                  <option value="1:1">1:1 Square (Instagram)</option>
+                  <option value="4:5">4:5 Portrait</option>
+                </select>
+              </div>
+              <span className="viewer__dim-chip">{dims.width}×{dims.height}</span>
+            </div>
+
+            <div className="viewer__top-right">
+              <span className="viewer__fps-chip">{fps} FPS</span>
+              <button
+                type="button"
+                className={`viewer__theater-btn ${isTheater ? "is-active" : ""}`}
+                onClick={() => setIsTheater((v) => !v)}
+                title={isTheater ? "Exit Expanded Mode" : "Expand Video Player (Bigger Preview)"}
+              >
+                {isTheater ? "⊟ Normal" : "⊞ Expand"}
+              </button>
+            </div>
+          </div>
+
           <div className="viewer__frame" ref={viewerFrameRef}>
             <canvas ref={canvasRef} width={dims.width} height={dims.height} className="viewer__canvas" />
             <button

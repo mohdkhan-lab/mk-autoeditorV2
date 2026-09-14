@@ -1131,9 +1131,14 @@ export default function Home() {
 
       <div className={`projbar${showEditor ? "" : " projbar--onboard"}`}>
         <div className="projbar__id">
-          <button className="brand__back" onClick={backToProjects} title="Back to your projects">←</button>
-          <button className="brand__proj" onClick={renameCurrent} title="Rename project">
-            {currentProject ? (currentProject.name || "Untitled project") : "AutoEditor"}
+          <button className="brand__back" onClick={backToProjects} title="Back to all projects">
+            <span className="brand__back-arrow">←</span>
+            <span className="brand__back-text">Projects</span>
+          </button>
+          <button className="brand__proj-badge" onClick={renameCurrent} title="Click to rename project">
+            <span className="brand__proj-icon">🎬</span>
+            <span className="brand__proj-name">{currentProject ? (currentProject.name || "Untitled project") : "AutoEditor"}</span>
+            <span className="brand__proj-edit">✎</span>
           </button>
         </div>
         <div className="bar__io">
