@@ -351,6 +351,10 @@ export default function Home() {
     } catch (e) { setError(e.message); }
   }, []);
 
+  const onAudioFile = useCallback((file) => {
+    if (file) onAudio([file]);
+  }, [onAudio]);
+
   // Import images & videos, merged by timestamp: a file whose timestamp matches an
   // existing slot fills/replaces it; otherwise it becomes a new slot.
   const addImages = useCallback(async (fileList) => {

@@ -4,10 +4,14 @@ import path from "node:path";
 export async function POST(req) {
   try {
     const data = await req.json();
-    const logLine = `[${new Date().toISOString()}] CLIENT ERROR: ${JSON.stringify(data, null, 2)}\n\n`;
     console.error(">>> CAPTURED CLIENT ERROR:", data);
-    const logFile = path.join(process.cwd(), "client-error.log");
-    await fs.appendFile(logFile, logLine);
+    try {
+      const logFile = process.env.VERCEL
+        ? path.join("/tmp", "client-error.log")
+        : path.join(process.cwd(), "client-error.log");
+      const logLine = `[${new Date().toISOString()}] CLIENT ERROR: ${JSON.stringify(data, null, 2)}\n\n`;
+      await fs.appendFile(logFile, logLine);
+    } catch (_) {}
     return Response.json({ ok: true });
   } catch (e) {
     console.error("Failed to log client error:", e);
