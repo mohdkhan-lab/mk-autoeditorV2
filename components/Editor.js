@@ -6,7 +6,7 @@ import {
   MIN_TRANSITION_DURATION, MAX_TRANSITION_DURATION,
 } from "../lib/transitions";
 import {
-  CAPTION_STYLE_LIST, CAPTION_SIZES, captionAt, captionCueAt, drawCaption, captionFontPx, captionLineHeightDefault, POPULAR_FONTS,
+  CAPTION_STYLE_LIST, CAPTION_STYLES, CAPTION_TEMPLATES, CAPTION_SIZES, captionAt, captionCueAt, drawCaption, captionFontPx, captionLineHeightDefault, POPULAR_FONTS,
 } from "../lib/captions";
 import { EFFECTS, getPreDrawTransform, applyCanvasPostEffect } from "../lib/effects";
 import { playWhoosh, playSfx, TRANSITION_SFX_LIST, getSmartSfxForClip } from "../lib/sfx";
@@ -158,6 +158,24 @@ export default function Editor({
   const [bgmFadeIn, setBgmFadeIn] = useState(1.0);
   const [bgmFadeOut, setBgmFadeOut] = useState(1.5);
   const [audioEqProfile, setAudioEqProfile] = useState("natural");
+  const [captionAnim, setCaptionAnim] = useState("pop"); // "pop" | "pill" | "bounce" | "highlighter" | "glow" | "karaoke" | "none"
+  const [captionCase, setCaptionCase] = useState("uppercase"); // "uppercase" | "normal"
+  const [captionTemplate, setCaptionTemplate] = useState("hormozi_viral");
+
+  const applyTemplate = useCallback((t) => {
+    setCaptionTemplate(t.id);
+    setCaptionStyle(t.styleId);
+    if (setCaptionFont) setCaptionFont(t.fontId);
+    if (setCaptionPos) setCaptionPos(t.position);
+    if (setCaptionSize) setCaptionSize(t.size);
+    setCaptionAnim(t.anim);
+    setCaptionCase(t.uppercase ? "uppercase" : "normal");
+    if (CAPTION_STYLES[t.styleId]) {
+      CAPTION_STYLES[t.styleId].highlightFill = t.accentColor;
+    }
+    if (drawRef.current) drawRef.current(timeRef.current);
+  }, [setCaptionStyle, setCaptionFont, setCaptionPos, setCaptionSize]);
+
   const toggleMix = useCallback((id) => {
     setMixPicks((prev) => {
       const next = new Set(prev);
@@ -550,7 +568,7 @@ export default function Editor({
     if (captionsOn && captionCues && captionCues.length) {
       const cue = captionCueAt ? captionCueAt(captionCues, t) : null;
       const txt = cue ? cue.text : captionAt(captionCues, t);
-      if (txt) drawCaption(ctx, txt, W, H, captionStyle, captionFontPx(H, captionSize, captionFontScale), captionLineHeight, cue, t, captionPos, captionFont);
+      if (txt) drawCaption(ctx, txt, W, H, captionStyle, captionFontPx(H, captionSize, captionFontScale), captionLineHeight, cue, t, captionPos, captionFont, { anim: captionAnim, uppercase: captionCase === "uppercase" });
     }
 
     // Watermark / channel logo overlay (burned in under fades)
@@ -1855,7 +1873,102 @@ export default function Editor({
                 )}
 
                 <div className="cap-body" aria-disabled={!captionsOn}>
-                  <div className="mini-h">Subtitle Style (Viral Preset Gallery)</div>
+                  {/* 1-Click CapCut Caption Templates */}
+                  <div className="mini-h" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>🔥 CapCut 1-Click Viral Templates</span>
+                    <span style={{ fontSize: "9px", color: "#fbbf24", fontWeight: 700, letterSpacing: "0.04em" }}>1-TAP APPLY</span>
+                  </div>
+                  <div className="cap-templates-grid">
+                    {CAPTION_TEMPLATES.map((t) => {
+                      const isAct = captionTemplate === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          className={`cap-template-card ${isAct ? "is-active" : ""}`}
+                          onClick={() => applyTemplate(t)}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                            <span
+                              className="cap-template-card__tag"
+                              style={{
+                                background: `${t.badgeColor}25`,
+                                color: t.badgeColor,
+                                border: `1px solid ${t.badgeColor}55`,
+                              }}
+                            >
+                              {t.tag}
+                            </span>
+                            {isAct && <span style={{ fontSize: 9, color: "#fbbf24", fontWeight: 800 }}>ACTIVE</span>}
+                          </div>
+                          <div className="cap-template-card__preview">
+                            <span style={t.previewStyle}>{t.previewText}</span>
+                          </div>
+                          <div className="cap-template-card__info">
+                            <span className="cap-template-card__title">{t.name}</span>
+                            <span className="cap-template-card__sub">{t.subtitle}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* CapCut Word Animation Control */}
+                  <div className="mini-h" style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>⚡ Active Word Animation (CapCut Motion)</span>
+                    <span style={{ fontSize: "9px", color: "var(--text-dim)" }}>AUTO SYNC</span>
+                  </div>
+                  <div className="cap-anim-seg">
+                    {[
+                      { id: "pop", label: "Word Pop", icon: "⚡" },
+                      { id: "pill", label: "Capsule Pill", icon: "💊" },
+                      { id: "bounce", label: "Sine Bounce", icon: "🚀" },
+                      { id: "highlighter", label: "Highlighter", icon: "🖍️" },
+                      { id: "glow", label: "Neon Bloom", icon: "✨" },
+                      { id: "karaoke", label: "Smooth Fill", icon: "🎤" },
+                      { id: "none", label: "Static Text", icon: "⏹️" },
+                    ].map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        className={`cap-anim-btn ${captionAnim === a.id ? "is-on" : ""}`}
+                        onClick={() => {
+                          setCaptionAnim(a.id);
+                          if (drawRef.current) drawRef.current(timeRef.current);
+                        }}
+                      >
+                        <span className="cap-anim-btn__icon">{a.icon}</span>
+                        <span>{a.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Text Transform / Casing */}
+                  <div className="mini-h" style={{ marginTop: 12 }}>Text Transform</div>
+                  <div className="seg">
+                    <button
+                      type="button"
+                      className={captionCase === "uppercase" ? "is-on" : ""}
+                      onClick={() => {
+                        setCaptionCase("uppercase");
+                        if (drawRef.current) drawRef.current(timeRef.current);
+                      }}
+                    >
+                      ALL CAPS (Viral Format)
+                    </button>
+                    <button
+                      type="button"
+                      className={captionCase === "normal" ? "is-on" : ""}
+                      onClick={() => {
+                        setCaptionCase("normal");
+                        if (drawRef.current) drawRef.current(timeRef.current);
+                      }}
+                    >
+                      Normal Case
+                    </button>
+                  </div>
+
+                  <div className="mini-h" style={{ marginTop: 14 }}>Subtitle Style (Viral Preset Gallery)</div>
                   <div className="cap-style-grid">
                     {CAPTION_STYLE_LIST.map((st) => {
                       const on = captionStyle === st.id;
@@ -1864,9 +1977,19 @@ export default function Editor({
                           key={st.id}
                           type="button"
                           className={`cap-style-card ${on ? "is-active" : ""}`}
-                          onClick={() => setCaptionStyle(st.id)}
+                          onClick={() => {
+                            setCaptionStyle(st.id);
+                            if (drawRef.current) drawRef.current(timeRef.current);
+                          }}
                         >
                           <div className="cap-style-card__preview">
+                            {st.id === "capcut_pill" && <span style={{ background: "rgba(10,12,18,0.92)", color: "#ffd400", border: "1px solid rgba(255,212,0,0.5)", borderRadius: 10, padding: "1px 6px", fontWeight: 800, fontSize: "10px" }}>CAPSULE</span>}
+                            {st.id === "capcut_bounce" && <span style={{ color: "#00ff66", textShadow: "0 0 8px rgba(0,255,102,0.9)", fontWeight: 900, fontSize: "11px" }}>BOUNCE</span>}
+                            {st.id === "capcut_highlight" && <span style={{ background: "#ffe600", color: "#000", padding: "1px 5px", borderRadius: 2, fontWeight: 800, fontSize: "10px" }}>HIGHLIGHT</span>}
+                            {st.id === "capcut_karaoke" && <span style={{ color: "#ffe600", textShadow: "0 0 8px rgba(255,230,0,0.9)", fontWeight: 800, fontSize: "11px" }}>KARAOKE</span>}
+                            {st.id === "capcut_3d" && <span style={{ color: "#ff2d55", textShadow: "1.5px 1.5px 0 #1a0005, 3px 3px 0 #000", fontWeight: 900, fontSize: "11px" }}>3D BLOCK</span>}
+                            {st.id === "capcut_glow" && <span style={{ color: "#38bdf8", textShadow: "0 0 8px #38bdf8", fontWeight: 800, fontSize: "11px" }}>BLOOM</span>}
+                            {st.id === "capcut_luxury" && <span style={{ color: "#f59e0b", fontStyle: "italic", fontWeight: 800, fontSize: "11px" }}>GOLD LUXE</span>}
                             {st.id === "ovogold" && <span style={{ color: "#fbbf24", background: "rgba(15,17,23,0.9)", padding: "1px 5px", borderRadius: 3, fontWeight: 800, fontSize: "10px" }}>OVO GOLD</span>}
                             {st.id === "terminal" && <span style={{ color: "#00ff66", background: "rgba(0,20,5,0.9)", padding: "1px 5px", borderRadius: 3, fontFamily: "monospace", fontWeight: 700, fontSize: "10px" }}>&gt;_TERM</span>}
                             {st.id === "mrbeast" && <span style={{ color: "#ffea00", textShadow: "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000", fontWeight: 900, fontSize: "11px", letterSpacing: "0.05em" }}>MRBEAST</span>}

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Cinzel:wght@700&family=Montserrat:wght@700;900&family=Outfit:wght@700;800&family=Poppins:wght@700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Bangers&family=Bebas+Neue&family=Cinzel:wght@700&family=Montserrat:wght@700;900&family=Outfit:wght@700;800&family=Poppins:wght@700;800&family=Russo+One&display=swap');
 
 :root {
   /* MK AutoEditor — CapCut Pro Gold Glass theme */
@@ -2192,6 +2192,129 @@ button:focus-visible, .dz:focus-visible, a:focus-visible {
 .cap-style-card.is-active .cap-style-card__name {
   color: #fbbf24;
   font-weight: 700;
+}
+
+/* ---------- CapCut 1-Click Caption Templates ---------- */
+.cap-templates-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+.cap-template-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 10px;
+  border-radius: 11px;
+  background: rgba(18, 20, 29, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+  overflow: hidden;
+  min-height: 94px;
+}
+.cap-template-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(245, 158, 11, 0.5);
+  background: rgba(26, 29, 44, 0.95);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.cap-template-card.is-active {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(18, 20, 29, 0.95) 100%);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.28), inset 0 0 0 1px #f59e0b;
+}
+.cap-template-card__tag {
+  display: inline-block;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.cap-template-card__preview {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px;
+  margin: 4px 0;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 6px;
+  font-size: 11px;
+  text-align: center;
+  min-height: 28px;
+}
+.cap-template-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+.cap-template-card__title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cap-template-card.is-active .cap-template-card__title {
+  color: #fbbf24;
+}
+.cap-template-card__sub {
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* CapCut animation toggle segment */
+.cap-anim-seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
+.cap-anim-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border-radius: 7px;
+  background: rgba(18, 20, 29, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.cap-anim-btn:hover {
+  background: rgba(28, 31, 46, 0.9);
+  color: var(--text);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+.cap-anim-btn.is-on {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: #f59e0b;
+  color: #fbbf24;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+}
+.cap-anim-btn__icon {
+  font-size: 13px;
 }
 
 /* ---------- Audio Spectrum & Auto-Ducking ---------- */

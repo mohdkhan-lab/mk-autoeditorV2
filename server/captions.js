@@ -4,6 +4,41 @@
 
 // ---- style presets (shared by preview canvas + ffmpeg drawtext) ----
 export const CAPTION_STYLES = {
+  capcut_pill: {
+    id: "capcut_pill", label: "💊 CapCut Word Capsule",
+    fill: "#ffffff", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=white:box=1:boxcolor=black@0.9:boxborderw=8`,
+  },
+  capcut_bounce: {
+    id: "capcut_bounce", label: "⚡ CapCut Word Bounce",
+    fill: "#ffffff", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=0x00FF66:borderw=${bw}:bordercolor=black@0.95`,
+  },
+  capcut_highlight: {
+    id: "capcut_highlight", label: "🖍️ CapCut Highlighter Strip",
+    fill: "#ffffff", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=0xFFE600:borderw=${bw}:bordercolor=black@0.9`,
+  },
+  capcut_karaoke: {
+    id: "capcut_karaoke", label: "🎤 CapCut Smooth Karaoke",
+    fill: "#ffffff", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=0xFFE600:borderw=${bw}:bordercolor=black@0.95`,
+  },
+  capcut_3d: {
+    id: "capcut_3d", label: "🧊 CapCut 3D Extrusion",
+    fill: "#ffffff", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=0xFF2D55:borderw=${bw}:bordercolor=black@0.95:shadowcolor=black@0.95:shadowx=6:shadowy=6`,
+  },
+  capcut_glow: {
+    id: "capcut_glow", label: "✨ CapCut Neon Bloom",
+    fill: "#e0f2fe", stroke: "#0284c7", box: null,
+    dt: (bw) => `fontcolor=0x38BDF8:borderw=${bw}:bordercolor=0x0284C7@0.95`,
+  },
+  capcut_luxury: {
+    id: "capcut_luxury", label: "👑 CapCut Golden Luxe",
+    fill: "#fef3c7", stroke: "#451a03", box: null,
+    dt: (bw) => `fontcolor=0xF59E0B:borderw=${bw}:bordercolor=0x451A03@0.9`,
+  },
   classic: {
     id: "classic", label: "Classic outline",
     fill: "#ffffff", stroke: "#000000", box: null,
@@ -18,6 +53,71 @@ export const CAPTION_STYLES = {
     id: "yellow", label: "Yellow classic",
     fill: "#ffd400", stroke: "#000000", box: null,
     dt: (bw) => `fontcolor=0xFFD400:borderw=${bw}:bordercolor=black@0.9`,
+  },
+  karaoke: {
+    id: "karaoke", label: "⚡ Karaoke Pop (Gold)",
+    fill: "#ffffff", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=0xFFD400:borderw=${bw}:bordercolor=black@0.9`,
+  },
+  neon: {
+    id: "neon", label: "🟢 Neon Pop (Green)",
+    fill: "#ffffff", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=0x22C55E:borderw=${bw}:bordercolor=black@0.9`,
+  },
+  mrbeast: {
+    id: "mrbeast", label: "🔥 MrBeast Bold",
+    fill: "#ffffff", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=0xFFEA00:borderw=${bw}:bordercolor=black@0.95:shadowcolor=black@0.9:shadowx=4:shadowy=4`,
+  },
+  fire: {
+    id: "fire", label: "🔴 Fire Alert",
+    fill: "#fff2e0", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=0xFF3B30:borderw=${bw}:bordercolor=black@0.95`,
+  },
+  cyberpunk: {
+    id: "cyberpunk", label: "🔵 Cyberpunk Cyan",
+    fill: "#e0f7fa", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=0x00F2FE:borderw=${bw}:bordercolor=black@0.95`,
+  },
+  netflix: {
+    id: "netflix", label: "🎬 Netflix Cinema",
+    fill: "rgba(235, 238, 245, 0.72)", stroke: null, box: "rgba(15, 18, 24, 0.8)",
+    dt: (bw, fs) => `fontcolor=white:box=1:boxcolor=0x0F1218@0.78:boxborderw=${Math.max(4, Math.round(fs * 0.2))}`,
+  },
+  hormozi: {
+    id: "hormozi", label: "⚡ Alex Hormozi (Lime Pop)",
+    fill: "#ffffff", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=0xCCFF00:borderw=${bw}:bordercolor=black@0.95:shadowcolor=black@0.95:shadowx=5:shadowy=5`,
+  },
+  abdaal: {
+    id: "abdaal", label: "🎙️ Ali Abdaal (Minimal Glass)",
+    fill: "#f8fafc", stroke: null, box: "rgba(15, 23, 42, 0.75)",
+    dt: (bw, fs) => `fontcolor=0x38BDF8:box=1:boxcolor=0x0F172A@0.75:boxborderw=${Math.max(4, Math.round(fs * 0.18))}`,
+  },
+  gadzhi: {
+    id: "gadzhi", label: "📜 Iman Gadzhi (Luxury Gold)",
+    fill: "#f8fafc", stroke: "#1a1408", box: null,
+    dt: (bw) => `fontcolor=0xF59E0B:borderw=${bw}:bordercolor=0x1A1408@0.9`,
+  },
+  vox: {
+    id: "vox", label: "🔥 Vox / Explainer Tag",
+    fill: "#ffffff", stroke: "#000000", box: "rgba(0,0,0,0.82)",
+    dt: (bw, fs) => `fontcolor=0xFFEA00:box=1:boxcolor=black@0.82:boxborderw=${Math.max(4, Math.round(fs * 0.18))}`,
+  },
+  comic: {
+    id: "comic", label: "💥 Comic Pop / Gaming",
+    fill: "#ffffff", stroke: "#000000", box: null,
+    dt: (bw) => `fontcolor=0xFF2D55:borderw=${bw}:bordercolor=black@0.95:shadowcolor=black@0.9:shadowx=4:shadowy=4`,
+  },
+  ovogold: {
+    id: "ovogold", label: "🦉 OVO Luxury (Slate & Gold)",
+    fill: "#f8fafc", stroke: null, box: "rgba(15, 17, 23, 0.88)",
+    dt: (bw, fs) => `fontcolor=0xFBBF24:box=1:boxcolor=0x0F1117@0.88:boxborderw=${Math.max(4, Math.round(fs * 0.2))}`,
+  },
+  terminal: {
+    id: "terminal", label: "📟 Hacker Terminal [Green]",
+    fill: "#22c55e", stroke: "#000000", box: "rgba(0, 20, 5, 0.85)",
+    dt: (bw, fs) => `fontcolor=0x00FF66:box=1:boxcolor=0x001405@0.85:boxborderw=${Math.max(3, Math.round(fs * 0.16))}`,
   },
 };
 
