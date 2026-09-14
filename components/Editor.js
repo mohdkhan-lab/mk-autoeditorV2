@@ -38,6 +38,7 @@ function clock(sec) {
 
 export default function Editor({
   clips, imageEls, audioUrl, duration, peaks, dims,
+  onAddImages, onAudioFile,
   aspect, setAspect, fps, setFps,
   renderQuality = "full", setRenderQuality, renderDims,
   onRender, onCancel, busy, progress, outUrl, error, warnings,
@@ -111,6 +112,27 @@ export default function Editor({
   const replaceInputRef = useRef(null);
   const bgmInputRef = useRef(null);
   const watermarkInputRef = useRef(null);
+  const addMediaInputRef = useRef(null);
+  const addVoiceoverInputRef = useRef(null);
+  const [hubTab, setHubTab] = useState("media"); // "media" | "captions" | "effects" | "transitions" | "audio" | "watermark"
+  const [inspectorTab, setInspectorTab] = useState("clip"); // "clip" | "export"
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [mobileTab, setMobileTab] = useState("media"); // for <= 1024px screens
+
+  const onPickAddMedia = useCallback((e) => {
+    if (e.target.files && e.target.files.length && onAddImages) {
+      onAddImages(e.target.files);
+    }
+    e.target.value = "";
+  }, [onAddImages]);
+
+  const onPickVoiceover = useCallback((e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file && onAudioFile) {
+      onAudioFile(file);
+    }
+    e.target.value = "";
+  }, [onAudioFile]);
   const audioCtxRef = useRef(null);
   const lastWhooshCutRef = useRef(-1);
   const watermarkImgRef = useRef(null);
@@ -895,453 +917,494 @@ export default function Editor({
     setSidebarEffect("none");
   }, [applyEffectAll]);
 
-  return (
-    <section className="editor">
-      <div className={`main ${isTheater ? "is-theater" : ""}`}>
-        <div className="viewer">
-          {/* CapCut Studio Header: Quick Aspect Switcher, Specs & Theater Expansion */}
-          <div className="viewer__top-bar">
-            <div className="viewer__top-left">
-              <div className="viewer__aspect-pill" title="Change Video Aspect Ratio">
-                <span className="viewer__aspect-icon">
-                  {aspect === "9:16" ? "📱" : aspect === "1:1" ? "⏹️" : aspect === "4:5" ? "📷" : "🎬"}
-                </span>
-                <select
-                  className="viewer__aspect-dropdown"
-                  value={aspect}
-                  onChange={(e) => setAspect && setAspect(e.target.value)}
-                  title="Switch Aspect Ratio (16:9 YouTube, 9:16 Shorts/Reels/TikTok, 1:1, 4:5)"
-                >
-                  <option value="16:9">16:9 Landscape (YouTube)</option>
-                  <option value="9:16">9:16 Vertical (Shorts/Reels)</option>
-                  <option value="1:1">1:1 Square (Instagram)</option>
-                  <option value="4:5">4:5 Portrait</option>
-                </select>
-              </div>
-              <span className="viewer__dim-chip">{dims.width}×{dims.height}</span>
-            </div>
-
-            <div className="viewer__top-right">
-              <span className="viewer__fps-chip">{fps} FPS</span>
-              <button
-                type="button"
-                className={`viewer__theater-btn ${isTheater ? "is-active" : ""}`}
-                onClick={() => setIsTheater((v) => !v)}
-                title={isTheater ? "Exit Expanded Mode" : "Expand Video Player (Bigger Preview)"}
-              >
-                {isTheater ? "⊟ Normal" : "⊞ Expand"}
-              </button>
-            </div>
-          </div>
-
-          <div className="viewer__frame" ref={viewerFrameRef}>
-            <canvas ref={canvasRef} width={dims.width} height={dims.height} className="viewer__canvas" />
-            <button
-              type="button"
-              className="viewer__fs-corner"
-              onClick={toggleFullscreen}
-              title={isFullscreen ? "Exit Fullscreen (F / Esc)" : "Fullscreen Cinema Preview (F)"}
-              aria-label="Toggle Fullscreen"
-            >
-              {isFullscreen ? "✕" : "⛶"}
-            </button>
-          </div>
-
-          {/* Player Controls Bar — positioned below canvas so it never obstructs subtitles */}
-          <div className="hud-dock hud-dock--docked">
-            <div className="hud-time">
-              <span>{tc(time)}</span>
-              <span className="hud-time__sep">/</span>
-              <span className="hud-time__total">{tc(exportDuration)}</span>
-            </div>
-            <div className="hud-controls">
-              <button
-                type="button"
-                className="hud-step"
-                onClick={() => seek(Math.max(0, time - 1))}
-                title="Step back 1s (Left Arrow)"
-                aria-label="Step back"
-              >⏮</button>
-              <button
-                type="button"
-                className={`hud-play ${playing ? "is-playing" : ""}`}
-                onClick={toggle}
-                aria-label={playing ? "Pause" : "Play"}
-                title={playing ? "Pause (Space)" : "Play (Space)"}
-              >
-                {playing ? "❚❚" : "►"}
-              </button>
-              <button
-                type="button"
-                className="hud-step"
-                onClick={() => seek(Math.min(exportDuration, time + 1))}
-                title="Step forward 1s (Right Arrow)"
-                aria-label="Step forward"
-              >⏭</button>
-            </div>
-            <div className="hud-extra">
-              <button
-                type="button"
-                className="hud-step"
-                onClick={undo}
-                disabled={!canUndo}
-                title="Undo (Ctrl+Z)"
-                aria-label="Undo"
-              >↺</button>
-              <button
-                type="button"
-                className="hud-step"
-                onClick={redo}
-                disabled={!canRedo}
-                title="Redo (Ctrl+Shift+Z)"
-                aria-label="Redo"
-              >↻</button>
-              <button
-                type="button"
-                className={`hud-step ${isFullscreen ? "is-active" : ""}`}
-                onClick={toggleFullscreen}
-                title={isFullscreen ? "Exit Fullscreen (F / Esc)" : "Fullscreen Cinema Preview (F)"}
-                aria-label="Toggle Fullscreen"
-              >
-                {isFullscreen ? "🗗" : "⛶"}
-              </button>
-              {active && (
-                <span className="hud-badge" title={active.name}>
-                  {active.gap ? "Empty" : `Clip ${activeIndex}/${imageCount}`}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <audio ref={audioRef} src={audioUrl} hidden />
-          <audio ref={bgmAudioRef} src={bgmUrl || undefined} loop hidden />
-        </div>
-
-        {(() => {
-          const shown = warnings.filter((w) => !dismissedWarn.has(w));
-          if (!shown.length) return null;
-          return (
-            <div className="notes notes--compact">
-              {shown.map((w, i) => (
-                <div className="note note--dismissable" key={i}>
-                  <span>{w}</span>
-                  <button className="note__x" onClick={() => setDismissedWarn((p) => new Set([...p, w]))}>✕</button>
-                </div>
-              ))}
-              <button className="notes__clear" onClick={() => setDismissedWarn((p) => new Set([...p, ...shown]))}>Clear warnings</button>
-            </div>
-          );
-        })()}
-
-        <Timeline
-          clips={clips}
-          imageEls={imageEls}
-          duration={duration}
-          time={time}
-          peaks={peaks}
-          activeName={active && active.name}
-          badClips={badClips}
-          transitionsByName={transitionsByName}
-          motionByName={motionByName}
-          selectedName={selectedCut}
-          onSelect={selectClip}
-          onSeek={seek}
-          onScrubStart={onScrubStart}
-          onScrubEnd={onScrubEnd}
-          onOpen={openInspect}
-          onAdd={askAdd}
-          onResizeBoundary={resizeBoundary}
-          trimEnd={trimEnd}
-          onTrimChange={setTrimEnd}
-          videoInfoByName={videoInfoByName}
-          fitByName={fitByName}
-          effectsByName={effectsByName}
-          bgmName={bgmFile ? bgmFile.name : null}
-          bgmVolume={bgmVolume}
-          bgmDucking={bgmDucking}
-          onAddBgm={() => bgmInputRef.current && bgmInputRef.current.click()}
-          onRemoveBgm={() => setBgmFile && setBgmFile(null)}
-        />
+  const renderMediaHubPanel = () => (
+    <div className="panel media-hub-panel">
+      <div className="effects__titlerow" style={{ marginBottom: 10 }}>
+        <span className="panel__h">Media Library</span>
+        <span className="effects__target-pill">{imageCount} clips</span>
       </div>
 
-      <aside className="side">
-        <div className="side__tabs-dock">
-          <div className="side__tabs-grid">
+      <div
+        className={`media-dropzone ${isDragOver ? "is-dragover" : ""}`}
+        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragOver(false);
+          if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length && onAddImages) {
+            onAddImages(e.dataTransfer.files);
+          }
+        }}
+        onClick={() => addMediaInputRef.current && addMediaInputRef.current.click()}
+      >
+        <div className="media-dropzone__icon">➕</div>
+        <div className="media-dropzone__title">Import Photos &amp; Videos</div>
+        <div className="media-dropzone__hint">Click or drag &amp; drop files here to add to project</div>
+      </div>
+
+      <div className="mini-h" style={{ marginTop: 14 }}>Project Timeline Clips ({clips.length})</div>
+      <div className="media-clips-list">
+        {clips.map((c, idx) => {
+          const el = imageEls && imageEls[c.name];
+          const isVid = videoInfoByName && !!videoInfoByName[c.name];
+          const isSelected = selectedCut === c.name || (active && active.name === c.name);
+          return (
+            <div
+              key={c.name}
+              className={`media-clip-row ${isSelected ? "is-selected" : ""} ${c.gap ? "is-gap" : ""}`}
+              onClick={() => {
+                selectClip(c.name);
+                seek(c.start);
+                setInspectorTab("clip");
+              }}
+            >
+              <div className="media-clip-row__thumb">
+                {c.gap ? (
+                  <span className="media-clip-row__gap-icon">⚠️</span>
+                ) : isVid && videoInfoByName[c.name] ? (
+                  <video src={videoInfoByName[c.name].url} muted playsInline preload="metadata" />
+                ) : el ? (
+                  <img src={el.url} alt="" />
+                ) : (
+                  <span className="media-clip-row__gap-icon">🖼️</span>
+                )}
+                <span className="media-clip-row__idx">#{idx + 1}</span>
+              </div>
+              <div className="media-clip-row__info">
+                <span className="media-clip-row__name">
+                  {c.gap ? "Empty Gap" : (el && el.fileName) || c.name}
+                </span>
+                <span className="media-clip-row__meta">
+                  {tc(c.start)} · {c.duration.toFixed(1)}s {isVid ? "· 🎬 Video" : ""}
+                </span>
+              </div>
+              <div className="media-clip-row__actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="media-clip-row__btn"
+                  title="Replace clip"
+                  onClick={() => {
+                    openInspect(c.name);
+                    if (replaceInputRef.current) replaceInputRef.current.click();
+                  }}
+                >
+                  🔄
+                </button>
+                <button
+                  type="button"
+                  className="media-clip-row__btn media-clip-row__btn--del"
+                  title="Remove from timeline"
+                  onClick={() => removeImage && removeImage(c.name)}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const renderClipInspectorPanel = () => (
+    <div className="panel clip-inspector-panel">
+      <div className="effects__titlerow" style={{ marginBottom: 10 }}>
+        <span className="panel__h">Properties</span>
+        <span className="effects__target-pill">
+          {targetClip && !targetClip.gap ? `Clip ${selectedImageNum || activeIndex}/${imageCount}` : "No Clip"}
+        </span>
+      </div>
+
+      {targetClip && !targetClip.gap ? (
+        <>
+          <div className="inspector-preview-card">
+            <div className="inspector-preview-thumb">
+              {videoInfoByName[targetClip.name] ? (
+                <video src={videoInfoByName[targetClip.name].url} muted playsInline preload="metadata" />
+              ) : imageEls[targetClip.name] ? (
+                <img src={imageEls[targetClip.name].url} alt="" />
+              ) : (
+                <span style={{ fontSize: 24 }}>🖼️</span>
+              )}
+            </div>
+            <div className="inspector-preview-details">
+              <div className="inspector-clip-name">{(imageEls[targetClip.name] && imageEls[targetClip.name].fileName) || targetClip.name}</div>
+              <div className="inspector-clip-timing">
+                <span>Starts at {tc(targetClip.start)}</span> · <span>{targetClip.duration.toFixed(1)}s</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="inspector-actions-row">
             <button
               type="button"
-              className={`sidetab ${sidebarTab === "effects" ? "is-active" : ""}`}
-              onClick={() => setSidebarTab("effects")}
-              title="Visual Effects"
+              className="mbtn mbtn--primary inspector-action-btn"
+              onClick={() => {
+                openInspect(targetClip.name);
+                if (replaceInputRef.current) replaceInputRef.current.click();
+              }}
             >
-              <span className="sidetab__icon">✨</span>
-              <span className="sidetab__text">Effects</span>
+              🔄 Replace Media
             </button>
             <button
               type="button"
-              className={`sidetab ${sidebarTab === "transitions" ? "is-active" : ""}`}
-              onClick={() => setSidebarTab("transitions")}
-              title="Transitions"
+              className="mbtn mbtn--danger inspector-action-btn"
+              onClick={() => removeImage && removeImage(targetClip.name)}
             >
-              <span className="sidetab__icon">🔀</span>
-              <span className="sidetab__text">Transitions</span>
-            </button>
-            <button
-              type="button"
-              className={`sidetab ${sidebarTab === "motion" ? "is-active" : ""}`}
-              onClick={() => setSidebarTab("motion")}
-              title="Motion & Zoom"
-            >
-              <span className="sidetab__icon">⤢</span>
-              <span className="sidetab__text">Motion</span>
-            </button>
-            <button
-              type="button"
-              className={`sidetab ${sidebarTab === "captions" ? "is-active" : ""}`}
-              onClick={() => setSidebarTab("captions")}
-              title="Captions & Subtitles"
-            >
-              <span className="sidetab__icon">💬</span>
-              <span className="sidetab__text">Captions</span>
-            </button>
-            <button
-              type="button"
-              className={`sidetab ${sidebarTab === "audio" ? "is-active" : ""}`}
-              onClick={() => setSidebarTab("audio")}
-              title="Audio & Sound Effects"
-            >
-              <span className="sidetab__icon">🎵</span>
-              <span className="sidetab__text">Audio</span>
-            </button>
-            <button
-              type="button"
-              className={`sidetab ${sidebarTab === "watermark" ? "is-active" : ""}`}
-              onClick={() => setSidebarTab("watermark")}
-              title="Brand Logo & Watermark"
-            >
-              <span className="sidetab__icon">🏷️</span>
-              <span className="sidetab__text">Brand</span>
-            </button>
-            <button
-              type="button"
-              className={`sidetab ${sidebarTab === "export" ? "is-active" : ""}`}
-              onClick={() => setSidebarTab("export")}
-              title="Export & Render"
-            >
-              <span className="sidetab__icon">🚀</span>
-              <span className="sidetab__text">Export</span>
-            </button>
-            <button
-              type="button"
-              className={`sidetab ${sidebarTab === "all" ? "is-active" : ""}`}
-              onClick={() => setSidebarTab("all")}
-              title="Show All Panels"
-            >
-              <span className="sidetab__icon">📑</span>
-              <span className="sidetab__text">All</span>
+              🗑️ Remove Clip
             </button>
           </div>
+
+          {videoInfoByName[targetClip.name] && (
+            <div className="inspector-section">
+              <div className="mini-h">Video Slot Alignment</div>
+              <div className="seg" style={{ marginBottom: 8 }}>
+                <button
+                  type="button"
+                  className={(fitByName[targetClip.name] || "fit") === "fit" ? "is-on" : ""}
+                  onClick={() => setFit && setFit(targetClip.name, "fit")}
+                >
+                  Fit (Speed)
+                </button>
+                <button
+                  type="button"
+                  className={fitByName[targetClip.name] === "trim" ? "is-on" : ""}
+                  onClick={() => setFit && setFit(targetClip.name, "trim")}
+                >
+                  Trim (1×)
+                </button>
+              </div>
+
+              <div className="mini-h">Clip Audio Volume</div>
+              <div className="seg" style={{ marginBottom: 6 }}>
+                <button type="button" className={(volumeByName[targetClip.name] ?? 0.5) === 0 ? "is-on" : ""} onClick={() => setVolume && setVolume(targetClip.name, 0)}>🔇 Mute</button>
+                <button type="button" className={Math.abs((volumeByName[targetClip.name] ?? 0.5) - 0.2) < 0.05 ? "is-on" : ""} onClick={() => setVolume && setVolume(targetClip.name, 0.2)}>🔉 20%</button>
+                <button type="button" className={(volumeByName[targetClip.name] ?? 0.5) === 1 ? "is-on" : ""} onClick={() => setVolume && setVolume(targetClip.name, 1)}>🔊 100%</button>
+              </div>
+            </div>
+          )}
+
+          <div className="inspector-section">
+            <div className="mini-h">Motion Zoom (Ken Burns)</div>
+            <div className="motion-chips-grid">
+              {[
+                { id: "none", label: "Static", icon: "⏸️" },
+                { id: "zoomin", label: "Zoom In", icon: "🔍" },
+                { id: "zoomout", label: "Zoom Out", icon: "🔎" },
+                { id: "panleft", label: "Pan Left", icon: "⬅️" },
+                { id: "panright", label: "Pan Right", icon: "➡️" },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`motion-chip ${((motionByName && motionByName[targetClip.name]) || "none") === m.id ? "is-active" : ""}`}
+                  onClick={() => setMotion && setMotion(targetClip.name, m.id)}
+                >
+                  <span>{m.icon}</span> {m.label}
+                </button>
+              ))}
+            </div>
+            <div className="eff-slider-card" style={{ marginTop: 8 }}>
+              <div className="eff-slider-card__head">
+                <span className="eff-slider-card__title">Zoom Depth</span>
+                <span className="eff-slider-card__badge">{Math.round(motionAmount * 100)}%</span>
+              </div>
+              <input
+                type="range" min={0.02} max={0.2} step={0.01}
+                value={motionAmount}
+                onChange={(e) => setMotionAmount(+e.target.value)}
+                className="eff-slider-input"
+              />
+            </div>
+          </div>
+
+          <div className="inspector-section">
+            <div className="mini-h">Scene Dissolve Fades</div>
+            <div className="fades-grid">
+              <div className="fade-card">
+                <div className="fade-card__head">
+                  <span className="fade-card__title">Intro Fade</span>
+                  <span className="fade-card__badge">{fadeIn > 0 ? `${fadeIn.toFixed(1)}s` : "Off"}</span>
+                </div>
+                <input
+                  type="range" min={0} max={2} step={0.1}
+                  value={fadeIn} onChange={(e) => setFadeIn(+e.target.value)}
+                  className="eff-slider-input"
+                />
+              </div>
+              <div className="fade-card">
+                <div className="fade-card__head">
+                  <span className="fade-card__title">Outro Fade</span>
+                  <span className="fade-card__badge">{fadeOut > 0 ? `${fadeOut.toFixed(1)}s` : "Off"}</span>
+                </div>
+                <input
+                  type="range" min={0} max={2} step={0.1}
+                  value={fadeOut} onChange={(e) => setFadeOut(+e.target.value)}
+                  className="eff-slider-input"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="inspector-section">
+            <div className="mini-h">Applied Visual Effect</div>
+            <div className="inspector-effect-row">
+              <span className="inspector-eff-badge">
+                {EFFECTS[effectsByName[targetClip.name] || "none"]?.icon} {EFFECTS[effectsByName[targetClip.name] || "none"]?.name || "None"}
+              </span>
+              <button
+                type="button"
+                className="inspector-eff-change-btn"
+                onClick={() => { setHubTab("effects"); setMobileTab("effects"); }}
+              >
+                Change in Effects →
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="cap-empty" style={{ marginTop: 20 }}>
+          <span style={{ fontSize: 32 }}>🎬</span>
+          <p style={{ marginTop: 8, color: "var(--muted)", fontSize: 13 }}>
+            Click any clip on the timeline or media library to inspect its properties, speed, and motion.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderExportPanel = () => (
+    <div className="panel export">
+      <div className="effects__titlerow" style={{ marginBottom: 10 }}>
+        <span className="panel__h">Export</span>
+        <span className="effects__target-pill">MP4 · H.264</span>
+      </div>
+
+      {/* 1-Tap Platform Preset Cards */}
+      <div className="mini-h">1-Tap Platform Presets</div>
+      <div className="export-preset-grid">
+        <button
+          type="button"
+          className={`export-preset-card ${aspect === "9:16" && fps === 30 && renderQuality === "full" ? "is-active" : ""}`}
+          onClick={() => {
+            setAspect("9:16");
+            setFps(30);
+            if (setRenderQuality) setRenderQuality("full");
+          }}
+        >
+          <div className="export-preset-card__top">
+            <span className="export-preset-card__icon">📱</span>
+            <span className="export-preset-card__tag">9:16 VERTICAL</span>
+          </div>
+          <div className="export-preset-card__title">Shorts / Reels</div>
+          <div className="export-preset-card__desc">1080×1920 · 30fps · Full HD</div>
+        </button>
+
+        <button
+          type="button"
+          className={`export-preset-card ${aspect === "16:9" && fps === 30 && renderQuality === "full" ? "is-active" : ""}`}
+          onClick={() => {
+            setAspect("16:9");
+            setFps(30);
+            if (setRenderQuality) setRenderQuality("full");
+          }}
+        >
+          <div className="export-preset-card__top">
+            <span className="export-preset-card__icon">🎬</span>
+            <span className="export-preset-card__tag">16:9 WIDE</span>
+          </div>
+          <div className="export-preset-card__title">YouTube Cinema</div>
+          <div className="export-preset-card__desc">1920×1080 · 30fps · Standard</div>
+        </button>
+
+        <button
+          type="button"
+          className={`export-preset-card ${aspect === "1:1" && fps === 30 ? "is-active" : ""}`}
+          onClick={() => {
+            setAspect("1:1");
+            setFps(30);
+            if (setRenderQuality) setRenderQuality("full");
+          }}
+        >
+          <div className="export-preset-card__top">
+            <span className="export-preset-card__icon">⬛</span>
+            <span className="export-preset-card__tag">1:1 SQUARE</span>
+          </div>
+          <div className="export-preset-card__title">Instagram Feed</div>
+          <div className="export-preset-card__desc">1080×1080 · 30fps · Feed Post</div>
+        </button>
+
+        <button
+          type="button"
+          className={`export-preset-card ${aspect === "4:5" && fps === 30 ? "is-active" : ""}`}
+          onClick={() => {
+            setAspect("4:5");
+            setFps(30);
+            if (setRenderQuality) setRenderQuality("full");
+          }}
+        >
+          <div className="export-preset-card__top">
+            <span className="export-preset-card__icon">📸</span>
+            <span className="export-preset-card__tag">4:5 PORTRAIT</span>
+          </div>
+          <div className="export-preset-card__title">TikTok / Insta Post</div>
+          <div className="export-preset-card__desc">1080×1350 · 30fps · Tall Feed</div>
+        </button>
+
+        <button
+          type="button"
+          className={`export-preset-card ${renderQuality === "720p" ? "is-active" : ""}`}
+          onClick={() => {
+            if (setRenderQuality) setRenderQuality("720p");
+            setFps(24);
+          }}
+        >
+          <div className="export-preset-card__top">
+            <span className="export-preset-card__icon">⚡</span>
+            <span className="export-preset-card__tag">DRAFT 720p</span>
+          </div>
+          <div className="export-preset-card__title">Fast Preview</div>
+          <div className="export-preset-card__desc">3× Faster Export · 24fps</div>
+        </button>
+      </div>
+
+      <div className="mini-h" style={{ marginTop: 12 }}>Fine-tune Settings</div>
+      <div className="ctrl-row">
+        <label className="ctrl">
+          <span className="ctrl__label">Aspect</span>
+          <span className="selectwrap">
+            <select value={aspect} onChange={(e) => setAspect(e.target.value)}>
+              <option value="16:9">16:9 — 1920×1080 (Cinema)</option>
+              <option value="9:16">9:16 — 1080×1920 (Reels/Shorts)</option>
+              <option value="1:1">1:1 — 1080×1080 (Square Feed)</option>
+              <option value="4:5">4:5 — 1080×1350 (Portrait Feed)</option>
+              <option value="auto">Auto — match image</option>
+            </select>
+          </span>
+        </label>
+        <label className="ctrl">
+          <span className="ctrl__label">FPS</span>
+          <span className="selectwrap">
+            <select value={fps} onChange={(e) => setFps(+e.target.value)}>
+              <option value={24}>24 fps</option>
+              <option value={30}>30 fps</option>
+            </select>
+          </span>
+        </label>
+        <label className="ctrl">
+          <span className="ctrl__label">Quality</span>
+          <span className="selectwrap">
+            <select value={renderQuality} onChange={(e) => setRenderQuality && setRenderQuality(e.target.value)}>
+              <option value="full">Full — {dims.width}×{dims.height}</option>
+              <option value="720p">720p — faster</option>
+            </select>
+          </span>
+        </label>
+      </div>
+
+      <div className="mini-h" style={{ marginTop: 12 }}>Export Filename</div>
+      <div className="export-filename-wrap">
+        <input
+          type="text"
+          className="wm-input"
+          value={exportFilename}
+          onChange={(e) => setExportFilename(e.target.value)}
+          placeholder="story"
+        />
+        <span className="export-ext-tag">.mp4</span>
+      </div>
+
+      <dl className="specs" style={{ marginTop: 10 }}>
+        <div className="spec"><dt>Resolution</dt><dd>{(renderDims || dims).width}×{(renderDims || dims).height}{renderQuality === "720p" ? " · faster" : ""}</dd></div>
+        <div className="spec"><dt>Images / Cuts</dt><dd>{imageCount} clips</dd></div>
+        <div className="spec spec--length">
+          <dt>Runtime</dt>
+          <dd>
+            {tc(exportDuration)}
+            {exportDuration < duration && (
+              <span className="spec__trim">trimmed from {tc(duration)}</span>
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      {gapCount > 0 && (
+        <div className="note note--gap">
+          {gapCount} empty {gapCount === 1 ? "gap" : "gaps"} render black — fill with the <b>+</b>.
+        </div>
+      )}
+
+      {!(busy || wcBusy) ? (
+        (wcAvailable || serverAvailable) ? (
+          <div style={{ marginTop: 12 }}>
+            <button
+              className="render"
+              onClick={wcAvailable ? onWebCodecsTest : onRender}
+            >
+              🚀 Render &amp; Export MP4
+            </button>
+            <div style={{ fontSize: "11px", color: "#10b981", textAlign: "center", marginTop: "5px", fontWeight: "600", letterSpacing: "0.02em" }}>
+              ● v2.1 WebCodecs Engine (Anti-Freeze Active)
+            </div>
+          </div>
+        ) : (
+          <div className="note">Rendering needs Chrome, Edge, or Safari 16.4+ (WebCodecs) in this browser.</div>
+        )
+      ) : (
+        <>
+          <button className="render render--busy" disabled>
+            {wcBusy ? (wcPhase || `Rendering… ${Math.round(wcProgress * 100)}%`) : `Rendering… ${Math.round(progress * 100)}%`}
+          </button>
+          <div className="progress"><i style={{ width: `${Math.round((wcBusy ? wcProgress : progress) * 100)}%` }} /></div>
+          <div className="render-meta">
+            <span>{clock(elapsed)} elapsed</span>
+            {(wcBusy ? wcProgress : progress) > 0.03 && <span>~{clock(elapsed * (1 - (wcBusy ? wcProgress : progress)) / (wcBusy ? wcProgress : progress))} left</span>}
+          </div>
+          <button className="cancel" onClick={wcBusy ? onWebCodecsCancel : onCancel}>Cancel</button>
+        </>
+      )}
+      {outUrl && (
+        <a className="download" href={outUrl} download={`${(exportFilename && exportFilename.trim()) || "story"}.mp4`} style={{ marginTop: 10 }}>
+          ↓ Download Final Video (MP4)
+        </a>
+      )}
+      {error && <div className="note note--bad">{error}</div>}
+    </div>
+  );
+
+  return (
+    <section className={`editor editor--studio ${isTheater ? "is-theater" : ""}`}>
+      {/* 1. LEFT PANEL: Studio Media & Creative Hub */}
+      <aside className={`studio-media-hub ${mobileTab === "inspector" || mobileTab === "export" ? "is-mobile-hidden" : ""}`}>
+        <div className="hub-tabs-bar">
+          {[
+            { id: "media", label: "Media", icon: "📁" },
+            { id: "captions", label: "Captions", icon: "💬" },
+            { id: "effects", label: "Effects", icon: "✨" },
+            { id: "transitions", label: "Transitions", icon: "⚡" },
+            { id: "motion", label: "Motion", icon: "🎬" },
+            { id: "audio", label: "Audio", icon: "🎵" },
+            { id: "watermark", label: "Logo", icon: "🏷️" },
+          ].map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`hub-tab-btn ${hubTab === t.id ? "is-active" : ""}`}
+              onClick={() => {
+                setHubTab(t.id);
+                setMobileTab(t.id);
+              }}
+              title={t.label}
+            >
+              <span>{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
         </div>
 
-        {(sidebarTab === "export" || sidebarTab === "all") && (
-          <div className="panel export">
-            <div className="effects__titlerow" style={{ marginBottom: 10 }}>
-              <span className="panel__h">Export</span>
-              <span className="effects__target-pill">MP4 · H.264</span>
-            </div>
+        {hubTab === "media" && renderMediaHubPanel()}
 
-            {/* 1-Tap Platform Preset Cards */}
-            <div className="mini-h">1-Tap Platform Presets</div>
-            <div className="export-preset-grid">
-              <button
-                type="button"
-                className={`export-preset-card ${aspect === "9:16" && fps === 30 && renderQuality === "full" ? "is-active" : ""}`}
-                onClick={() => {
-                  setAspect("9:16");
-                  setFps(30);
-                  if (setRenderQuality) setRenderQuality("full");
-                }}
-              >
-                <div className="export-preset-card__top">
-                  <span className="export-preset-card__icon">📱</span>
-                  <span className="export-preset-card__tag">9:16 VERTICAL</span>
-                </div>
-                <div className="export-preset-card__title">Shorts / Reels</div>
-                <div className="export-preset-card__desc">1080×1920 · 30fps · Full HD</div>
-              </button>
-
-              <button
-                type="button"
-                className={`export-preset-card ${aspect === "16:9" && fps === 30 && renderQuality === "full" ? "is-active" : ""}`}
-                onClick={() => {
-                  setAspect("16:9");
-                  setFps(30);
-                  if (setRenderQuality) setRenderQuality("full");
-                }}
-              >
-                <div className="export-preset-card__top">
-                  <span className="export-preset-card__icon">🎬</span>
-                  <span className="export-preset-card__tag">16:9 WIDE</span>
-                </div>
-                <div className="export-preset-card__title">YouTube Cinema</div>
-                <div className="export-preset-card__desc">1920×1080 · 30fps · Standard</div>
-              </button>
-
-              <button
-                type="button"
-                className={`export-preset-card ${aspect === "1:1" && fps === 30 ? "is-active" : ""}`}
-                onClick={() => {
-                  setAspect("1:1");
-                  setFps(30);
-                  if (setRenderQuality) setRenderQuality("full");
-                }}
-              >
-                <div className="export-preset-card__top">
-                  <span className="export-preset-card__icon">⬛</span>
-                  <span className="export-preset-card__tag">1:1 SQUARE</span>
-                </div>
-                <div className="export-preset-card__title">Instagram Feed</div>
-                <div className="export-preset-card__desc">1080×1080 · 30fps · Feed Post</div>
-              </button>
-
-              <button
-                type="button"
-                className={`export-preset-card ${aspect === "4:5" && fps === 30 ? "is-active" : ""}`}
-                onClick={() => {
-                  setAspect("4:5");
-                  setFps(30);
-                  if (setRenderQuality) setRenderQuality("full");
-                }}
-              >
-                <div className="export-preset-card__top">
-                  <span className="export-preset-card__icon">📸</span>
-                  <span className="export-preset-card__tag">4:5 PORTRAIT</span>
-                </div>
-                <div className="export-preset-card__title">TikTok / Insta Post</div>
-                <div className="export-preset-card__desc">1080×1350 · 30fps · Tall Feed</div>
-              </button>
-
-              <button
-                type="button"
-                className={`export-preset-card ${renderQuality === "720p" ? "is-active" : ""}`}
-                onClick={() => {
-                  if (setRenderQuality) setRenderQuality("720p");
-                  setFps(24);
-                }}
-              >
-                <div className="export-preset-card__top">
-                  <span className="export-preset-card__icon">⚡</span>
-                  <span className="export-preset-card__tag">DRAFT 720p</span>
-                </div>
-                <div className="export-preset-card__title">Fast Preview</div>
-                <div className="export-preset-card__desc">3× Faster Export · 24fps</div>
-              </button>
-            </div>
-
-            <div className="mini-h" style={{ marginTop: 12 }}>Fine-tune Settings</div>
-            <div className="ctrl-row">
-              <label className="ctrl">
-                <span className="ctrl__label">Aspect</span>
-                <span className="selectwrap">
-                  <select value={aspect} onChange={(e) => setAspect(e.target.value)}>
-                    <option value="16:9">16:9 — 1920×1080 (Cinema)</option>
-                    <option value="9:16">9:16 — 1080×1920 (Reels/Shorts)</option>
-                    <option value="1:1">1:1 — 1080×1080 (Square Feed)</option>
-                    <option value="4:5">4:5 — 1080×1350 (Portrait Feed)</option>
-                    <option value="auto">Auto — match image</option>
-                  </select>
-                </span>
-              </label>
-              <label className="ctrl">
-                <span className="ctrl__label">FPS</span>
-                <span className="selectwrap">
-                  <select value={fps} onChange={(e) => setFps(+e.target.value)}>
-                    <option value={24}>24 fps</option>
-                    <option value={30}>30 fps</option>
-                  </select>
-                </span>
-              </label>
-              <label className="ctrl">
-                <span className="ctrl__label">Quality</span>
-                <span className="selectwrap">
-                  <select value={renderQuality} onChange={(e) => setRenderQuality && setRenderQuality(e.target.value)}>
-                    <option value="full">Full — {dims.width}×{dims.height}</option>
-                    <option value="720p">720p — faster</option>
-                  </select>
-                </span>
-              </label>
-            </div>
-
-            <div className="mini-h" style={{ marginTop: 12 }}>Export Filename</div>
-            <div className="export-filename-wrap">
-              <input
-                type="text"
-                className="wm-input"
-                value={exportFilename}
-                onChange={(e) => setExportFilename(e.target.value)}
-                placeholder="story"
-              />
-              <span className="export-ext-tag">.mp4</span>
-            </div>
-
-            <dl className="specs" style={{ marginTop: 10 }}>
-              <div className="spec"><dt>Resolution</dt><dd>{(renderDims || dims).width}×{(renderDims || dims).height}{renderQuality === "720p" ? " · faster" : ""}</dd></div>
-              <div className="spec"><dt>Images / Cuts</dt><dd>{imageCount} clips</dd></div>
-              <div className="spec spec--length">
-                <dt>Runtime</dt>
-                <dd>
-                  {tc(exportDuration)}
-                  {exportDuration < duration && (
-                    <span className="spec__trim">trimmed from {tc(duration)}</span>
-                  )}
-                </dd>
-              </div>
-            </dl>
-
-            {gapCount > 0 && (
-              <div className="note note--gap">
-                {gapCount} empty {gapCount === 1 ? "gap" : "gaps"} render black — fill with the <b>+</b>.
-              </div>
-            )}
-
-            {!(busy || wcBusy) ? (
-              (wcAvailable || serverAvailable) ? (
-                <div style={{ marginTop: 12 }}>
-                  <button
-                    className="render"
-                    onClick={wcAvailable ? onWebCodecsTest : onRender}
-                  >
-                    🚀 Render &amp; Export MP4
-                  </button>
-                  <div style={{ fontSize: "11px", color: "#10b981", textAlign: "center", marginTop: "5px", fontWeight: "600", letterSpacing: "0.02em" }}>
-                    ● v2.1 WebCodecs Engine (Anti-Freeze Active)
-                  </div>
-                </div>
-              ) : (
-                <div className="note">Rendering needs Chrome, Edge, or Safari 16.4+ (WebCodecs) in this browser.</div>
-              )
-            ) : (
-              <>
-                <button className="render render--busy" disabled>
-                  {wcBusy ? (wcPhase || `Rendering… ${Math.round(wcProgress * 100)}%`) : `Rendering… ${Math.round(progress * 100)}%`}
-                </button>
-                <div className="progress"><i style={{ width: `${Math.round((wcBusy ? wcProgress : progress) * 100)}%` }} /></div>
-                <div className="render-meta">
-                  <span>{clock(elapsed)} elapsed</span>
-                  {(wcBusy ? wcProgress : progress) > 0.03 && <span>~{clock(elapsed * (1 - (wcBusy ? wcProgress : progress)) / (wcBusy ? wcProgress : progress))} left</span>}
-                </div>
-                <button className="cancel" onClick={wcBusy ? onWebCodecsCancel : onCancel}>Cancel</button>
-              </>
-            )}
-            {outUrl && (
-              <a className="download" href={outUrl} download={`${(exportFilename && exportFilename.trim()) || "story"}.mp4`} style={{ marginTop: 10 }}>
-                ↓ Download Final Video (MP4)
-              </a>
-            )}
-            {error && <div className="note note--bad">{error}</div>}
-          </div>
-        )}
-
-        {(sidebarTab === "effects" || sidebarTab === "all") && (
+        {hubTab === "effects" && (
           <div className="panel effects">
             <div className="effects__head">
               <div className="effects__titlerow">
@@ -1469,7 +1532,7 @@ export default function Editor({
           </div>
         )}
 
-        {(sidebarTab === "transitions" || sidebarTab === "all") && (
+        {hubTab === "transitions" && (
           <div className="panel transitions">
             <div className="transitions__head">
               <div className="transitions__titlerow">
@@ -1684,7 +1747,7 @@ export default function Editor({
           </div>
         )}
 
-        {(sidebarTab === "motion" || sidebarTab === "all") && (
+        {hubTab === "motion" && (
           <div className="panel motion-panel">
             <div className="effects__titlerow" style={{ marginBottom: 10 }}>
               <span className="panel__h">Motion &amp; Zoom</span>
@@ -1823,7 +1886,7 @@ export default function Editor({
           </div>
         )}
 
-        {(sidebarTab === "captions" || sidebarTab === "all") && (
+        {hubTab === "captions" && (
           <div className="panel captions">
             <div className="effects__titlerow" style={{ marginBottom: 10 }}>
               <span className="panel__h">Captions</span>
@@ -2150,7 +2213,7 @@ export default function Editor({
           </div>
         )}
 
-        {(sidebarTab === "audio" || sidebarTab === "all") && (
+        {hubTab === "audio" && (
           <div className="panel audio-panel">
             <div className="effects__titlerow" style={{ marginBottom: 10 }}>
               <span className="panel__h">Audio &amp; Music</span>
@@ -2175,6 +2238,27 @@ export default function Editor({
                   />
                 ))}
               </div>
+            </div>
+
+            {/* Primary Voiceover Track Card */}
+            <div className="voiceover-card" style={{ marginTop: 12 }}>
+              <div className="voiceover-card__head">
+                <span className="voiceover-card__title">🎤 Primary Voiceover (Narration)</span>
+                <span className="voiceover-card__badge">{audioUrl ? "ACTIVE" : "NONE"}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="mbtn mbtn--primary"
+                  style={{ flex: 1, padding: "7px 12px", fontSize: 12 }}
+                  onClick={() => addVoiceoverInputRef.current && addVoiceoverInputRef.current.click()}
+                >
+                  {audioUrl ? "🔄 Replace Voiceover" : "➕ Import Voiceover Audio"}
+                </button>
+              </div>
+              <span className="modal__hint" style={{ marginTop: 4 }}>
+                Drives auto-subtitles, pacing waveform, and background music ducking.
+              </span>
             </div>
 
             {!bgmFile ? (
@@ -2329,7 +2413,7 @@ export default function Editor({
           </div>
         )}
 
-        {(sidebarTab === "watermark" || sidebarTab === "all") && (
+        {hubTab === "watermark" && (
           <div className="panel watermark-panel">
             <div className="effects__titlerow" style={{ marginBottom: 10 }}>
               <span className="panel__h">Brand &amp; Logo</span>
@@ -2654,6 +2738,247 @@ export default function Editor({
 
       </aside>
 
+      {/* 2. CENTER PANEL: Video Preview Player */}
+      <div className="studio-player-center">
+        <div className="viewer">
+          {/* CapCut Studio Header: Quick Aspect Switcher, Specs & Theater Expansion */}
+          <div className="viewer__top-bar">
+            <div className="viewer__top-left">
+              <div className="viewer__aspect-pill" title="Change Video Aspect Ratio">
+                <span className="viewer__aspect-icon">
+                  {aspect === "9:16" ? "📱" : aspect === "1:1" ? "⏹️" : aspect === "4:5" ? "📷" : "🎬"}
+                </span>
+                <select
+                  className="viewer__aspect-dropdown"
+                  value={aspect}
+                  onChange={(e) => setAspect && setAspect(e.target.value)}
+                  title="Switch Aspect Ratio (16:9 YouTube, 9:16 Shorts/Reels/TikTok, 1:1, 4:5)"
+                >
+                  <option value="16:9">16:9 Landscape (YouTube)</option>
+                  <option value="9:16">9:16 Vertical (Shorts/Reels)</option>
+                  <option value="1:1">1:1 Square (Instagram)</option>
+                  <option value="4:5">4:5 Portrait</option>
+                </select>
+              </div>
+              <span className="viewer__dim-chip">{dims.width}×{dims.height}</span>
+            </div>
+
+            <div className="viewer__top-right">
+              <span className="viewer__fps-chip">{fps} FPS</span>
+              <button
+                type="button"
+                className={`viewer__theater-btn ${isTheater ? "is-active" : ""}`}
+                onClick={() => setIsTheater((v) => !v)}
+                title={isTheater ? "Exit Expanded Mode" : "Expand Video Player (Bigger Preview)"}
+              >
+                {isTheater ? "⊟ Normal" : "⊞ Expand"}
+              </button>
+            </div>
+          </div>
+
+          <div className="viewer__frame" ref={viewerFrameRef}>
+            <canvas ref={canvasRef} width={dims.width} height={dims.height} className="viewer__canvas" />
+            <button
+              type="button"
+              className="viewer__fs-corner"
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Exit Fullscreen (F / Esc)" : "Fullscreen Cinema Preview (F)"}
+              aria-label="Toggle Fullscreen"
+            >
+              {isFullscreen ? "✕" : "⛶"}
+            </button>
+          </div>
+
+          {/* Player Controls Bar — positioned below canvas so it never obstructs subtitles */}
+          <div className="hud-dock hud-dock--docked">
+            <div className="hud-time">
+              <span>{tc(time)}</span>
+              <span className="hud-time__sep">/</span>
+              <span className="hud-time__total">{tc(exportDuration)}</span>
+            </div>
+            <div className="hud-controls">
+              <button
+                type="button"
+                className="hud-step"
+                onClick={() => seek(Math.max(0, time - 1))}
+                title="Step back 1s (Left Arrow)"
+                aria-label="Step back"
+              >⏮</button>
+              <button
+                type="button"
+                className={`hud-play ${playing ? "is-playing" : ""}`}
+                onClick={toggle}
+                aria-label={playing ? "Pause" : "Play"}
+                title={playing ? "Pause (Space)" : "Play (Space)"}
+              >
+                {playing ? "❚❚" : "►"}
+              </button>
+              <button
+                type="button"
+                className="hud-step"
+                onClick={() => seek(Math.min(exportDuration, time + 1))}
+                title="Step forward 1s (Right Arrow)"
+                aria-label="Step forward"
+              >⏭</button>
+            </div>
+            <div className="hud-extra">
+              <button
+                type="button"
+                className="hud-step"
+                onClick={undo}
+                disabled={!canUndo}
+                title="Undo (Ctrl+Z)"
+                aria-label="Undo"
+              >↺</button>
+              <button
+                type="button"
+                className="hud-step"
+                onClick={redo}
+                disabled={!canRedo}
+                title="Redo (Ctrl+Shift+Z)"
+                aria-label="Redo"
+              >↻</button>
+              <button
+                type="button"
+                className={`hud-step ${isFullscreen ? "is-active" : ""}`}
+                onClick={toggleFullscreen}
+                title={isFullscreen ? "Exit Fullscreen (F / Esc)" : "Fullscreen Cinema Preview (F)"}
+                aria-label="Toggle Fullscreen"
+              >
+                {isFullscreen ? "🗗" : "⛶"}
+              </button>
+              {active && (
+                <span className="hud-badge" title={active.name}>
+                  {active.gap ? "Empty" : `Clip ${activeIndex}/${imageCount}`}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <audio ref={audioRef} src={audioUrl} hidden />
+          <audio ref={bgmAudioRef} src={bgmUrl || undefined} loop hidden />
+        </div>
+      </div>
+
+      {/* 3. RIGHT PANEL: Inspector & Export Controls */}
+      <aside className={`studio-inspector-right ${mobileTab !== "inspector" && mobileTab !== "export" ? "is-mobile-hidden" : ""}`}>
+        <div className="inspector-tabs-bar">
+          <button
+            type="button"
+            className={`inspector-tab-btn ${inspectorTab === "clip" ? "is-active" : ""}`}
+            onClick={() => { setInspectorTab("clip"); setMobileTab("inspector"); }}
+          >
+            <span>🎛️</span>
+            <span>Clip Inspector</span>
+          </button>
+          <button
+            type="button"
+            className={`inspector-tab-btn ${inspectorTab === "export" ? "is-active" : ""}`}
+            onClick={() => { setInspectorTab("export"); setMobileTab("export"); }}
+          >
+            <span>🚀</span>
+            <span>Export &amp; Render</span>
+          </button>
+        </div>
+
+        {inspectorTab === "clip" && renderClipInspectorPanel()}
+        {inspectorTab === "export" && renderExportPanel()}
+      </aside>
+
+      {/* 4. MOBILE NAVIGATION DOCK (Visible on <= 1024px screens) */}
+      <div className="studio-mobile-nav">
+        {[
+          { id: "media", label: "Media", icon: "📁" },
+          { id: "captions", label: "Captions", icon: "💬" },
+          { id: "effects", label: "Effects", icon: "✨" },
+          { id: "transitions", label: "Transitions", icon: "⚡" },
+          { id: "motion", label: "Motion", icon: "🎬" },
+          { id: "audio", label: "Audio", icon: "🎵" },
+          { id: "watermark", label: "Logo", icon: "🏷️" },
+          { id: "inspector", label: "Inspector", icon: "🎛️" },
+          { id: "export", label: "Export", icon: "🚀" },
+        ].map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`studio-mobile-nav-btn ${mobileTab === t.id ? "is-active" : ""}`}
+            onClick={() => {
+              setMobileTab(t.id);
+              if (t.id === "inspector") {
+                setInspectorTab("clip");
+              } else if (t.id === "export") {
+                setInspectorTab("export");
+              } else {
+                setHubTab(t.id);
+              }
+            }}
+          >
+            <span>{t.icon}</span>
+            <span>{t.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 5. BOTTOM ROW: Full-Width Timeline */}
+      <div className="studio-timeline-bottom">
+        {(() => {
+          const shown = warnings.filter((w) => !dismissedWarn.has(w));
+          if (!shown.length) return null;
+          return (
+            <div className="notes notes--compact">
+              {shown.map((w, i) => (
+                <div className="note note--dismissable" key={i}>
+                  <span>{w}</span>
+                  <button className="note__x" onClick={() => setDismissedWarn((p) => new Set([...p, w]))}>✕</button>
+                </div>
+              ))}
+              <button className="notes__clear" onClick={() => setDismissedWarn((p) => new Set([...p, ...shown]))}>Clear warnings</button>
+            </div>
+          );
+        })()}
+
+        <Timeline
+          clips={clips}
+          imageEls={imageEls}
+          duration={duration}
+          time={time}
+          peaks={peaks}
+          activeName={active && active.name}
+          badClips={badClips}
+          transitionsByName={transitionsByName}
+          motionByName={motionByName}
+          selectedName={selectedCut}
+          onSelect={(name) => {
+            selectClip(name);
+            setInspectorTab("clip");
+          }}
+          onSeek={seek}
+          onScrubStart={onScrubStart}
+          onScrubEnd={onScrubEnd}
+          onOpen={openInspect}
+          onAdd={askAdd}
+          onResizeBoundary={resizeBoundary}
+          trimEnd={trimEnd}
+          onTrimChange={setTrimEnd}
+          videoInfoByName={videoInfoByName}
+          fitByName={fitByName}
+          effectsByName={effectsByName}
+          bgmName={bgmFile ? bgmFile.name : null}
+          bgmVolume={bgmVolume}
+          bgmDucking={bgmDucking}
+          onAddBgm={() => bgmInputRef.current && bgmInputRef.current.click()}
+          onRemoveBgm={() => setBgmFile && setBgmFile(null)}
+        />
+      </div>
+
+      <input
+        ref={addMediaInputRef} type="file" multiple accept={coarse ? undefined : "image/*,video/*"} hidden
+        onChange={onPickAddMedia}
+      />
+      <input
+        ref={addVoiceoverInputRef} type="file" accept="audio/*" hidden
+        onChange={onPickVoiceover}
+      />
       <input
         ref={fileInputRef} type="file" accept={coarse ? undefined : "image/*,video/*"} hidden
         onChange={onPickFile}

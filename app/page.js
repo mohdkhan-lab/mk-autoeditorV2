@@ -1258,6 +1258,7 @@ export default function Home() {
       ) : (
         <Editor
           clips={clips} imageEls={imageEls} audioUrl={audioUrl}
+          onAddImages={addImages} onAudioFile={onAudioFile}
           duration={audioDuration} peaks={peaks} dims={dims}
           aspect={aspect} setAspect={setAspect} fps={fps} setFps={setFps}
           renderQuality={renderQuality} setRenderQuality={setRenderQuality} renderDims={renderDims}
