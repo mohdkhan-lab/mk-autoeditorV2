@@ -6,7 +6,7 @@ import {
   MIN_TRANSITION_DURATION, MAX_TRANSITION_DURATION,
 } from "../lib/transitions";
 import {
-  CAPTION_STYLE_LIST, CAPTION_STYLES, CAPTION_TEMPLATES, CAPTION_SIZES, captionAt, captionCueAt, drawCaption, captionFontPx, captionLineHeightDefault, POPULAR_FONTS,
+  CAPTION_STYLE_LIST, CAPTION_STYLES, CAPTION_TEMPLATES, CAPTION_TEMPLATE_CATEGORIES, CAPTION_SIZES, captionAt, captionCueAt, drawCaption, captionFontPx, captionLineHeightDefault, POPULAR_FONTS,
 } from "../lib/captions";
 import { EFFECTS, getPreDrawTransform, applyCanvasPostEffect } from "../lib/effects";
 import { playWhoosh, playSfx, TRANSITION_SFX_LIST, getSmartSfxForClip } from "../lib/sfx";
@@ -162,6 +162,15 @@ export default function Editor({
   const [captionAnim, setCaptionAnim] = useState("pop"); // "pop" | "pill" | "bounce" | "highlighter" | "glow" | "karaoke" | "none"
   const [captionCase, setCaptionCase] = useState("uppercase"); // "uppercase" | "normal"
   const [captionTemplate, setCaptionTemplate] = useState("hormozi_viral");
+  const [captionCategory, setCaptionCategory] = useState("all");
+
+  useEffect(() => {
+    if (typeof document !== "undefined" && document.fonts) {
+      document.fonts.ready.then(() => {
+        if (drawRef.current) drawRef.current(timeRef.current);
+      }).catch(() => {});
+    }
+  }, []);
 
   const applyTemplate = useCallback((t) => {
     setCaptionTemplate(t.id);
@@ -1909,44 +1918,88 @@ export default function Editor({
                 )}
 
                 <div className="cap-body" aria-disabled={!captionsOn}>
-                  {/* 1-Click CapCut Caption Templates */}
+                  {/* CapCut Caption Presets Header */}
                   <div className="mini-h" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>🔥 CapCut 1-Click Viral Templates</span>
-                    <span style={{ fontSize: "9px", color: "#fbbf24", fontWeight: 700, letterSpacing: "0.04em" }}>1-TAP APPLY</span>
+                    <span>🎨 CapCut Caption Presets</span>
+                    <span style={{ fontSize: "9px", color: "#fbbf24", fontWeight: 700, letterSpacing: "0.04em" }}>
+                      {captionCategory === "all" ? `${CAPTION_TEMPLATES.length} STYLES` : `${CAPTION_TEMPLATES.filter((t) => t.category === captionCategory).length} STYLES`}
+                    </span>
                   </div>
-                  <div className="cap-templates-grid">
-                    {CAPTION_TEMPLATES.map((t) => {
-                      const isAct = captionTemplate === t.id;
+
+                  {/* Category Filter Tabs */}
+                  <div className="cap-cat-tabs">
+                    {CAPTION_TEMPLATE_CATEGORIES.map((cat) => {
+                      const isCatActive = captionCategory === cat.id;
                       return (
                         <button
-                          key={t.id}
+                          key={cat.id}
                           type="button"
-                          className={`cap-template-card ${isAct ? "is-active" : ""}`}
-                          onClick={() => applyTemplate(t)}
+                          className={`cap-cat-btn ${isCatActive ? "is-active" : ""}`}
+                          onClick={() => setCaptionCategory(cat.id)}
                         >
-                          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
-                            <span
-                              className="cap-template-card__tag"
-                              style={{
-                                background: `${t.badgeColor}25`,
-                                color: t.badgeColor,
-                                border: `1px solid ${t.badgeColor}55`,
-                              }}
-                            >
-                              {t.tag}
-                            </span>
-                            {isAct && <span style={{ fontSize: 9, color: "#fbbf24", fontWeight: 800 }}>ACTIVE</span>}
-                          </div>
-                          <div className="cap-template-card__preview">
-                            <span style={t.previewStyle}>{t.previewText}</span>
-                          </div>
-                          <div className="cap-template-card__info">
-                            <span className="cap-template-card__title">{t.name}</span>
-                            <span className="cap-template-card__sub">{t.subtitle}</span>
-                          </div>
+                          {cat.label}
                         </button>
                       );
                     })}
+                  </div>
+
+                  {/* Sleek CapCut 3-Column Visual Typography Tiles */}
+                  <div className="cap-preset-grid">
+                    {CAPTION_TEMPLATES
+                      .filter((t) => captionCategory === "all" || t.category === captionCategory)
+                      .map((t) => {
+                        const isAct = captionTemplate === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            className={`cap-preset-tile ${isAct ? "is-active" : ""}`}
+                            onClick={() => applyTemplate(t)}
+                            title={`${t.name} — ${t.subtitle}`}
+                          >
+                            <div className="cap-preset-tile__preview">
+                              <span
+                                className="cap-preset-tile__aa"
+                                style={t.previewAa}
+                              >
+                                {t.previewAa?.text || "Aa"}
+                              </span>
+                            </div>
+                            <span className="cap-preset-tile__name">{t.shortLabel || t.name}</span>
+                            {isAct && <span className="cap-preset-tile__dot" />}
+                          </button>
+                        );
+                      })}
+                  </div>
+
+                  {/* Quick Highlight Accent Color */}
+                  <div className="mini-h" style={{ marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Highlight Accent Color</span>
+                    <span style={{ fontSize: "9px", color: "var(--text-dim)" }}>ACTIVE WORD</span>
+                  </div>
+                  <div className="wm-color-row" style={{ marginTop: 4 }}>
+                    {[
+                      { hex: "#ccff00", name: "Neon Lime (Hormozi)" },
+                      { hex: "#ffd400", name: "Radiant Gold" },
+                      { hex: "#00ff66", name: "Electric Green" },
+                      { hex: "#00f2fe", name: "Cyan Bloom" },
+                      { hex: "#ff2d55", name: "Punch Red" },
+                      { hex: "#a855f7", name: "Neon Purple" },
+                      { hex: "#ffffff", name: "Pure White" },
+                    ].map((c) => (
+                      <div
+                        key={c.hex}
+                        className="wm-color-dot"
+                        style={{ background: c.hex }}
+                        title={c.name}
+                        onClick={() => {
+                          if (CAPTION_STYLES[captionStyle]) {
+                            CAPTION_STYLES[captionStyle].highlightFill = c.hex;
+                            if (drawRef.current) drawRef.current(timeRef.current);
+                          }
+                        }}
+                      />
+                    ))}
                   </div>
 
                   {/* CapCut Word Animation Control */}
@@ -2002,76 +2055,6 @@ export default function Editor({
                     >
                       Normal Case
                     </button>
-                  </div>
-
-                  <div className="mini-h" style={{ marginTop: 14 }}>Subtitle Style (Viral Preset Gallery)</div>
-                  <div className="cap-style-grid">
-                    {CAPTION_STYLE_LIST.map((st) => {
-                      const on = captionStyle === st.id;
-                      return (
-                        <button
-                          key={st.id}
-                          type="button"
-                          className={`cap-style-card ${on ? "is-active" : ""}`}
-                          onClick={() => {
-                            setCaptionStyle(st.id);
-                            if (drawRef.current) drawRef.current(timeRef.current);
-                          }}
-                        >
-                          <div className="cap-style-card__preview">
-                            {st.id === "capcut_pill" && <span style={{ background: "rgba(10,12,18,0.92)", color: "#ffd400", border: "1px solid rgba(255,212,0,0.5)", borderRadius: 10, padding: "1px 6px", fontWeight: 800, fontSize: "10px" }}>CAPSULE</span>}
-                            {st.id === "capcut_bounce" && <span style={{ color: "#00ff66", textShadow: "0 0 8px rgba(0,255,102,0.9)", fontWeight: 900, fontSize: "11px" }}>BOUNCE</span>}
-                            {st.id === "capcut_highlight" && <span style={{ background: "#ffe600", color: "#000", padding: "1px 5px", borderRadius: 2, fontWeight: 800, fontSize: "10px" }}>HIGHLIGHT</span>}
-                            {st.id === "capcut_karaoke" && <span style={{ color: "#ffe600", textShadow: "0 0 8px rgba(255,230,0,0.9)", fontWeight: 800, fontSize: "11px" }}>KARAOKE</span>}
-                            {st.id === "capcut_3d" && <span style={{ color: "#ff2d55", textShadow: "1.5px 1.5px 0 #1a0005, 3px 3px 0 #000", fontWeight: 900, fontSize: "11px" }}>3D BLOCK</span>}
-                            {st.id === "capcut_glow" && <span style={{ color: "#38bdf8", textShadow: "0 0 8px #38bdf8", fontWeight: 800, fontSize: "11px" }}>BLOOM</span>}
-                            {st.id === "capcut_luxury" && <span style={{ color: "#f59e0b", fontStyle: "italic", fontWeight: 800, fontSize: "11px" }}>GOLD LUXE</span>}
-                            {st.id === "ovogold" && <span style={{ color: "#fbbf24", background: "rgba(15,17,23,0.9)", padding: "1px 5px", borderRadius: 3, fontWeight: 800, fontSize: "10px" }}>OVO GOLD</span>}
-                            {st.id === "terminal" && <span style={{ color: "#00ff66", background: "rgba(0,20,5,0.9)", padding: "1px 5px", borderRadius: 3, fontFamily: "monospace", fontWeight: 700, fontSize: "10px" }}>&gt;_TERM</span>}
-                            {st.id === "mrbeast" && <span style={{ color: "#ffea00", textShadow: "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000", fontWeight: 900, fontSize: "11px", letterSpacing: "0.05em" }}>MRBEAST</span>}
-                            {st.id === "hormozi" && <span style={{ color: "#ccff00", textShadow: "1px 1px 0 #000", fontWeight: 900, fontSize: "11px" }}>HORMOZI</span>}
-                            {st.id === "vox" && <span style={{ background: "#000", color: "#ffea00", padding: "1px 5px", borderRadius: 3, fontWeight: 800, fontSize: "10px" }}>VOX TAG</span>}
-                            {st.id === "karaoke" && <span style={{ color: "#fbbf24", textShadow: "0 0 8px rgba(251,191,36,0.9)", fontWeight: 800, fontSize: "11px" }}>KARAOKE</span>}
-                            {st.id === "cyberpunk" && <span style={{ color: "#00f2fe", textShadow: "0 0 8px #00f2fe", fontWeight: 800, fontSize: "11px" }}>CYBER</span>}
-                            {st.id === "neon" && <span style={{ color: "#22c55e", textShadow: "0 0 8px #22c55e", fontWeight: 800, fontSize: "11px" }}>NEON</span>}
-                            {st.id === "netflix" && <span style={{ background: "rgba(15,18,24,0.85)", color: "#fff", padding: "1px 5px", borderRadius: 3, fontWeight: 600, fontSize: "10px" }}>CINEMA</span>}
-                            {st.id === "gadzhi" && <span style={{ color: "#f59e0b", fontStyle: "italic", fontWeight: 800, fontSize: "11px" }}>LUXURY</span>}
-                            {st.id === "abdaal" && <span style={{ background: "rgba(15,23,42,0.85)", color: "#38bdf8", padding: "1px 5px", borderRadius: 3, fontWeight: 600, fontSize: "10px" }}>ABDAAL</span>}
-                            {st.id === "comic" && <span style={{ color: "#ff2d55", textShadow: "1px 1px 0 #000", fontWeight: 900, fontSize: "11px" }}>COMIC!</span>}
-                            {st.id === "yellow" && <span style={{ color: "#ffea00", textShadow: "1px 1px 0 #000", fontWeight: 700, fontSize: "11px" }}>YELLOW</span>}
-                            {st.id === "boxed" && <span style={{ background: "rgba(0,0,0,0.7)", color: "#fff", padding: "1px 4px", borderRadius: 3, fontSize: "10px" }}>BOXED</span>}
-                            {st.id === "fire" && <span style={{ color: "#ff3b30", textShadow: "0 0 8px #ff3b30", fontWeight: 800, fontSize: "11px" }}>FIRE</span>}
-                            {st.id === "classic" && <span style={{ color: "#fff", textShadow: "1px 1px 0 #000", fontWeight: 700, fontSize: "11px" }}>CLASSIC</span>}
-                          </div>
-                          <span className="cap-style-card__name">{st.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mini-h" style={{ marginTop: 12 }}>Highlight Accent Color</div>
-                  <div className="wm-color-row">
-                    {[
-                      { hex: "#fbbf24", name: "Gold" },
-                      { hex: "#22c55e", name: "Neon Green" },
-                      { hex: "#00f2fe", name: "Cyan" },
-                      { hex: "#ff3b30", name: "Fire Red" },
-                      { hex: "#a855f7", name: "Purple" },
-                      { hex: "#ffffff", name: "Pure White" },
-                    ].map((c) => (
-                      <div
-                        key={c.hex}
-                        className="wm-color-dot"
-                        style={{ background: c.hex }}
-                        title={c.name}
-                        onClick={() => {
-                          if (CAPTION_STYLES[captionStyle]) {
-                            CAPTION_STYLES[captionStyle].highlightFill = c.hex;
-                            if (drawRef.current) drawRef.current(timeRef.current);
-                          }
-                        }}
-                      />
-                    ))}
                   </div>
 
                   <div className="mini-h" style={{ marginTop: 12 }}>Font Family (Viral Creator Fonts)</div>
