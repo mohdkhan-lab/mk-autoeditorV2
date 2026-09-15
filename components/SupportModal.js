@@ -3,8 +3,7 @@ import React, { useState, useEffect } from "react";
 import {
   SUPPORT_CONFIG,
   buildWhatsAppUrl,
-  buildGmailUrl,
-  buildEmailUrl,
+  buildTelegramUrl,
   buildDiagnosticReport,
 } from "../lib/supportConfig";
 
@@ -22,7 +21,6 @@ export default function SupportModal({
   const [details, setDetails] = useState("");
   const [attachDiagnostics, setAttachDiagnostics] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [emailCopied, setEmailCopied] = useState(false);
   const [ticketCopied, setTicketCopied] = useState(false);
   
   // Ticket submission state
@@ -69,14 +67,6 @@ export default function SupportModal({
     }
   };
 
-  const handleCopyEmail = () => {
-    try {
-      navigator.clipboard.writeText(SUPPORT_CONFIG.email);
-      setEmailCopied(true);
-      setTimeout(() => setEmailCopied(false), 2500);
-    } catch (_) {}
-  };
-
   const handleWhatsAppClick = () => {
     const url = buildWhatsAppUrl({
       error: currentError,
@@ -88,8 +78,8 @@ export default function SupportModal({
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  const handleGmailClick = () => {
-    const url = buildGmailUrl({
+  const handleTelegramClick = () => {
+    const url = buildTelegramUrl({
       error: currentError,
       topic,
       details,
@@ -97,17 +87,6 @@ export default function SupportModal({
       projectMeta,
     });
     window.open(url, "_blank", "noopener,noreferrer");
-  };
-
-  const handleDefaultMailClick = () => {
-    const url = buildEmailUrl({
-      error: currentError,
-      topic,
-      details,
-      userName: userName || userContact,
-      projectMeta,
-    });
-    window.location.href = url;
   };
 
   const handleSubmitTicket = async (e) => {
@@ -265,46 +244,24 @@ export default function SupportModal({
                 </button>
               </div>
 
-              {/* Email Option */}
-              <div className="support-channel-card support-channel-card--email">
+              {/* Telegram Support Option (100% Private - Mobile & Email Hidden) */}
+              <div className="support-channel-card support-channel-card--telegram">
                 <div className="support-channel-card__top">
-                  <span className="support-channel-card__badge">Direct Email</span>
-                  <span className="support-channel-card__icon">✉️</span>
+                  <span className="support-channel-card__badge">100% Private Chat</span>
+                  <span className="support-channel-card__icon">✈️</span>
                 </div>
-                <h4 className="support-channel-card__title">Developer Email</h4>
+                <h4 className="support-channel-card__title">Telegram Support</h4>
                 <p className="support-channel-card__desc">
-                  Send details directly to <strong>{SUPPORT_CONFIG.email}</strong>.
+                  Chat directly with <strong>{SUPPORT_CONFIG.ownerName}</strong> on Telegram. Your phone number &amp; personal email stay completely private.
                 </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <button
-                    type="button"
-                    className="support-action-btn support-action-btn--email"
-                    onClick={handleGmailClick}
-                    title="Open Gmail Web Compose directly in your browser"
-                  >
-                    <span>📧 Compose in Gmail (Web) →</span>
-                  </button>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      type="button"
-                      className="support-action-btn support-action-btn--sub"
-                      style={{ fontSize: 11, padding: "6px 8px", flex: 1 }}
-                      onClick={handleDefaultMailClick}
-                      title="Open default mail client (Outlook / Apple Mail)"
-                    >
-                      <span>✉️ Default Mail App</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="support-action-btn support-action-btn--sub"
-                      style={{ fontSize: 11, padding: "6px 8px", flex: 1 }}
-                      onClick={handleCopyEmail}
-                      title="Copy email address to clipboard"
-                    >
-                      <span>{emailCopied ? "✓ Copied!" : "📋 Copy Email"}</span>
-                    </button>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  className="support-action-btn support-action-btn--telegram"
+                  onClick={handleTelegramClick}
+                  title="Open Telegram Chat with @Mohdashraff18"
+                >
+                  <span>✈️ Chat on Telegram (@{SUPPORT_CONFIG.telegramUsername}) →</span>
+                </button>
               </div>
             </div>
 
@@ -339,44 +296,24 @@ export default function SupportModal({
                 <h4 className="support-success-card__title">Support Ticket Generated!</h4>
                 <div className="support-ticket-badge">#{ticketResult.ticketId}</div>
                 <p className="support-success-card__msg">
-                  Aapka ticket register ho gaya hai! Direct <strong>{SUPPORT_CONFIG.ownerName}</strong> tak bhejne ke liye niche <strong>Gmail (Web)</strong> ya <strong>WhatsApp</strong> par tap karein:
+                  Aapka ticket register ho gaya hai! Direct <strong>{SUPPORT_CONFIG.ownerName}</strong> se chat karne ke liye niche <strong>Telegram</strong> ya <strong>WhatsApp</strong> par tap karein (Aapka phone/email 100% private rahega):
                 </p>
                 <div className="support-success-card__actions">
                   <button
                     type="button"
-                    className="support-action-btn support-action-btn--email"
-                    onClick={() => {
-                      const url = buildGmailUrl({
-                        ticketId: ticketResult.ticketId,
-                        userName: ticketResult.userName,
-                        topic: ticketResult.topic,
-                        details: ticketResult.details,
-                        error: currentError,
-                        projectMeta,
-                      });
-                      window.open(url, "_blank", "noopener,noreferrer");
-                    }}
-                    title="Open Gmail Web Compose with ticket details filled"
+                    className="support-action-btn support-action-btn--telegram"
+                    onClick={handleTelegramClick}
+                    title="Chat on Telegram with @Mohdashraff18"
                   >
-                    <span>📧 Send via Gmail (Web) →</span>
+                    <span>✈️ Chat on Telegram (@{SUPPORT_CONFIG.telegramUsername}) →</span>
                   </button>
                   <button
                     type="button"
                     className="support-action-btn support-action-btn--wa"
-                    onClick={() => {
-                      const url = buildWhatsAppUrl({
-                        ticketId: ticketResult.ticketId,
-                        userName: ticketResult.userName,
-                        topic: ticketResult.topic,
-                        details: ticketResult.details,
-                        error: currentError,
-                        projectMeta,
-                      });
-                      window.open(url, "_blank", "noopener,noreferrer");
-                    }}
-                    title="Connect directly on WhatsApp"
+                    onClick={handleWhatsAppClick}
+                    title="Connect on official WhatsApp Channel"
                   >
-                    <span>📢 Send via WhatsApp →</span>
+                    <span>📢 WhatsApp Channel →</span>
                   </button>
                   <button
                     type="button"
@@ -472,39 +409,21 @@ export default function SupportModal({
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
                       type="button"
-                      className="support-action-btn support-action-btn--email"
+                      className="support-action-btn support-action-btn--telegram"
                       style={{ flex: 1, fontSize: 11, padding: "8px 6px" }}
-                      onClick={() => {
-                        const url = buildGmailUrl({
-                          userName: userName.trim() || "User",
-                          topic,
-                          details: details.trim() || "Need assistance",
-                          error: currentError,
-                          projectMeta,
-                        });
-                        window.open(url, "_blank", "noopener,noreferrer");
-                      }}
-                      title="Directly compose in Gmail Web"
+                      onClick={handleTelegramClick}
+                      title="Directly chat on Telegram (@Mohdashraff18)"
                     >
-                      <span>📧 Direct Gmail</span>
+                      <span>✈️ Telegram (@{SUPPORT_CONFIG.telegramUsername})</span>
                     </button>
                     <button
                       type="button"
                       className="support-action-btn support-action-btn--wa"
                       style={{ flex: 1, fontSize: 11, padding: "8px 6px" }}
-                      onClick={() => {
-                        const url = buildWhatsAppUrl({
-                          userName: userName.trim() || "User",
-                          topic,
-                          details: details.trim() || "Need assistance",
-                          error: currentError,
-                          projectMeta,
-                        });
-                        window.open(url, "_blank", "noopener,noreferrer");
-                      }}
-                      title="Directly connect on WhatsApp"
+                      onClick={handleWhatsAppClick}
+                      title="Directly open WhatsApp Channel"
                     >
-                      <span>📢 WhatsApp</span>
+                      <span>📢 WhatsApp Channel</span>
                     </button>
                   </div>
                 </div>

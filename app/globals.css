@@ -3932,6 +3932,14 @@ button:focus-visible, .dz:focus-visible, a:focus-visible {
 .support-channel-card--wa:hover {
   border-color: #25d366;
 }
+.support-channel-card--telegram {
+  border-color: rgba(34, 158, 217, 0.3);
+  background: linear-gradient(135deg, rgba(34, 158, 217, 0.1) 0%, rgba(18, 20, 29, 0.8) 100%);
+}
+.support-channel-card--telegram:hover {
+  border-color: #229ed9;
+  box-shadow: 0 4px 18px rgba(34, 158, 217, 0.25);
+}
 .support-channel-card--email {
   border-color: rgba(99, 102, 241, 0.25);
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.07) 0%, rgba(18, 20, 29, 0.8) 100%);
@@ -3959,6 +3967,10 @@ button:focus-visible, .dz:focus-visible, a:focus-visible {
 .support-channel-card--wa .support-channel-card__badge {
   color: #25d366;
   background: rgba(37, 211, 102, 0.16);
+}
+.support-channel-card--telegram .support-channel-card__badge {
+  color: #229ed9;
+  background: rgba(34, 158, 217, 0.18);
 }
 .support-channel-card--email .support-channel-card__badge {
   color: #a5b4fc;
@@ -4004,6 +4016,16 @@ button:focus-visible, .dz:focus-visible, a:focus-visible {
   background: #2ee071;
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(37, 211, 102, 0.45);
+}
+.support-action-btn--telegram {
+  background: #229ed9;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(34, 158, 217, 0.35);
+}
+.support-action-btn--telegram:hover {
+  background: #2cb5f6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(34, 158, 217, 0.5);
 }
 .support-action-btn--email {
   background: #4f46e5;
