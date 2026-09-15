@@ -23,6 +23,7 @@ export default function SupportModal({
   const [attachDiagnostics, setAttachDiagnostics] = useState(true);
   const [copied, setCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
+  const [ticketCopied, setTicketCopied] = useState(false);
   
   // Ticket submission state
   const [submitting, setSubmitting] = useState(false);
@@ -113,40 +114,77 @@ export default function SupportModal({
     e.preventDefault();
     setSubmitting(true);
     setSubmitError(null);
-    try {
-      const payload = {
-        userName: userName.trim() || "User",
-        contact: userContact.trim(),
-        topic,
-        error: currentError,
-        message: details.trim(),
-        diagnostics: attachDiagnostics
-          ? {
-              project: projectMeta,
-              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-              screen: typeof window !== "undefined" ? `${window.innerWidth}x${window.innerHeight}` : null,
-              webCodecs: typeof window !== "undefined" && typeof window.VideoEncoder !== "undefined",
-            }
-          : null,
-      };
 
+    const enteredName = userName.trim() || "User";
+    const enteredDetails = details.trim();
+
+    if (!enteredDetails) {
+      setSubmitError("Please write a short description of the problem.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Generate reliable, instant ticket ID
+    const clientTicketId = "TICK-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
+
+    const payload = {
+      ticketId: clientTicketId,
+      userName: enteredName,
+      contact: userContact.trim() || enteredName,
+      topic,
+      error: currentError,
+      message: enteredDetails,
+      diagnostics: attachDiagnostics
+        ? {
+            project: projectMeta,
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+            screen: typeof window !== "undefined" ? `${window.innerWidth}x${window.innerHeight}` : null,
+            webCodecs: typeof window !== "undefined" && typeof window.VideoEncoder !== "undefined",
+          }
+        : null,
+    };
+
+    // 1. Save ticket in browser localStorage
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        const stored = JSON.parse(localStorage.getItem("mk_support_tickets") || "[]");
+        stored.unshift({
+          ticketId: clientTicketId,
+          createdAt: new Date().toISOString(),
+          userName: enteredName,
+          topic,
+          message: enteredDetails,
+          error: currentError ? (typeof currentError === "string" ? currentError : currentError?.message) : null,
+        });
+        localStorage.setItem("mk_support_tickets", JSON.stringify(stored.slice(0, 20)));
+      }
+    } catch (_) {}
+
+    // 2. Safely attempt server-side logging without crashing on HTML / 404
+    try {
       const res = await fetch("/api/support", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Failed to submit ticket.");
+      const cType = res.headers.get("content-type") || "";
+      if (res.ok && cType.includes("application/json")) {
+        const data = await res.json();
+        if (data?.ticketId) {
+          payload.ticketId = data.ticketId;
+        }
       }
-
-      setTicketResult(data);
-    } catch (err) {
-      setSubmitError(err.message || "Failed to connect to support server. Please reach out directly on WhatsApp or Email.");
-    } finally {
-      setSubmitting(false);
+    } catch (_) {
+      // Graceful offline or static export fallback
     }
+
+    setTicketResult({
+      ticketId: payload.ticketId,
+      userName: enteredName,
+      topic,
+      details: enteredDetails,
+    });
+    setSubmitting(false);
   };
 
   return (
@@ -298,27 +336,70 @@ export default function SupportModal({
             {ticketResult ? (
               <div className="support-success-card">
                 <div className="support-success-card__icon">✓</div>
-                <h4 className="support-success-card__title">Ticket Submitted Successfully!</h4>
+                <h4 className="support-success-card__title">Support Ticket Generated!</h4>
+                <div className="support-ticket-badge">#{ticketResult.ticketId}</div>
                 <p className="support-success-card__msg">
-                  Your ticket <strong>#{ticketResult.ticketId}</strong> has been logged. {SUPPORT_CONFIG.ownerName} has been notified and will review your issue.
+                  Aapka ticket register ho gaya hai! Direct <strong>{SUPPORT_CONFIG.ownerName}</strong> tak bhejne ke liye niche <strong>Gmail (Web)</strong> ya <strong>WhatsApp</strong> par tap karein:
                 </p>
                 <div className="support-success-card__actions">
                   <button
                     type="button"
-                    className="support-action-btn support-action-btn--wa"
-                    onClick={handleWhatsAppClick}
+                    className="support-action-btn support-action-btn--email"
+                    onClick={() => {
+                      const url = buildGmailUrl({
+                        ticketId: ticketResult.ticketId,
+                        userName: ticketResult.userName,
+                        topic: ticketResult.topic,
+                        details: ticketResult.details,
+                        error: currentError,
+                        projectMeta,
+                      });
+                      window.open(url, "_blank", "noopener,noreferrer");
+                    }}
+                    title="Open Gmail Web Compose with ticket details filled"
                   >
-                    Send on WhatsApp too for faster reply
+                    <span>📧 Send via Gmail (Web) →</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="support-action-btn support-action-btn--wa"
+                    onClick={() => {
+                      const url = buildWhatsAppUrl({
+                        ticketId: ticketResult.ticketId,
+                        userName: ticketResult.userName,
+                        topic: ticketResult.topic,
+                        details: ticketResult.details,
+                        error: currentError,
+                        projectMeta,
+                      });
+                      window.open(url, "_blank", "noopener,noreferrer");
+                    }}
+                    title="Connect directly on WhatsApp"
+                  >
+                    <span>📢 Send via WhatsApp →</span>
                   </button>
                   <button
                     type="button"
                     className="support-action-btn support-action-btn--sub"
                     onClick={() => {
+                      const fullReport = `=== SUPPORT TICKET #${ticketResult.ticketId} ===\nUser: ${ticketResult.userName}\nTopic: ${ticketResult.topic}\nDetails: ${ticketResult.details}\n${buildDiagnosticReport({ error: currentError, topic: ticketResult.topic, details: ticketResult.details, projectMeta, ticketId: ticketResult.ticketId })}`;
+                      navigator.clipboard.writeText(fullReport);
+                      setTicketCopied(true);
+                      setTimeout(() => setTicketCopied(false), 2500);
+                    }}
+                  >
+                    <span>{ticketCopied ? "✓ Ticket Copied!" : "📋 Copy Full Ticket"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="support-action-btn support-action-btn--sub"
+                    style={{ marginTop: 4, background: "transparent", border: "none", color: "var(--muted)", textDecoration: "underline", fontSize: 11 }}
+                    onClick={() => {
                       setTicketResult(null);
                       setDetails("");
                     }}
                   >
-                    Submit Another Query
+                    ← Submit Another Query
                   </button>
                 </div>
               </div>
@@ -380,7 +461,7 @@ export default function SupportModal({
 
                 {submitError && <div className="note note--bad" style={{ marginTop: 8 }}>{submitError}</div>}
 
-                <div className="support-form__actions">
+                <div className="support-form__actions" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <button
                     type="submit"
                     className="render support-submit-btn"
@@ -388,6 +469,44 @@ export default function SupportModal({
                   >
                     {submitting ? "Submitting Ticket…" : "🚀 Send Support Message"}
                   </button>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      type="button"
+                      className="support-action-btn support-action-btn--email"
+                      style={{ flex: 1, fontSize: 11, padding: "8px 6px" }}
+                      onClick={() => {
+                        const url = buildGmailUrl({
+                          userName: userName.trim() || "User",
+                          topic,
+                          details: details.trim() || "Need assistance",
+                          error: currentError,
+                          projectMeta,
+                        });
+                        window.open(url, "_blank", "noopener,noreferrer");
+                      }}
+                      title="Directly compose in Gmail Web"
+                    >
+                      <span>📧 Direct Gmail</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="support-action-btn support-action-btn--wa"
+                      style={{ flex: 1, fontSize: 11, padding: "8px 6px" }}
+                      onClick={() => {
+                        const url = buildWhatsAppUrl({
+                          userName: userName.trim() || "User",
+                          topic,
+                          details: details.trim() || "Need assistance",
+                          error: currentError,
+                          projectMeta,
+                        });
+                        window.open(url, "_blank", "noopener,noreferrer");
+                      }}
+                      title="Directly connect on WhatsApp"
+                    >
+                      <span>📢 WhatsApp</span>
+                    </button>
+                  </div>
                 </div>
               </form>
             )}
