@@ -16,7 +16,7 @@ function clock(sec) {
   const m = Math.floor(sec / 60), s = Math.round(sec % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
 }
-export default function ProjectsHome({ projects, onNew, onOpen, onRename, onDelete, storage }) {
+export default function ProjectsHome({ projects, onNew, onOpen, onRename, onDelete, storage, onOpenSupport }) {
   const [menuId, setMenuId] = useState(null); // project id with its ⋮ menu open
 
   const doRename = async (p) => {
@@ -42,6 +42,17 @@ export default function ProjectsHome({ projects, onNew, onOpen, onRename, onDele
           <div className="ph__brand">
             <img className="ph__logo" src="/logo.svg" alt="MK AutoEditor" width="28" height="28" />
             <span className="ph__name"><span className="ph__pre">MK</span> AutoEditor</span>
+          </div>
+          <div className="ph__actions">
+            <button
+              type="button"
+              className="ph__support-btn"
+              onClick={onOpenSupport}
+              title="Get Developer Support"
+            >
+              <span className="ph__support-icon">💬</span>
+              <span>Support &amp; Help</span>
+            </button>
           </div>
         </div>
       </header>

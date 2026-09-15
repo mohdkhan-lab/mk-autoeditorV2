@@ -14,6 +14,7 @@ import Dropzone from "../components/Dropzone";
 import Editor from "../components/Editor";
 import ProjectsHome from "../components/ProjectsHome";
 import ErrorBoundary from "../components/ErrorBoundary";
+import SupportModal from "../components/SupportModal";
 import { DialogHost, showAlert, showPrompt } from "../components/Dialog";
 import {
   requestPersist, storageEstimate, listProjects, getProject, saveProject,
@@ -294,6 +295,14 @@ export default function Home() {
   const [currentProject, setCurrentProject] = useState(null); // { id, name, createdAt }
   const [storage, setStorage] = useState({ usage: 0, quota: 0 });
   const [loadingProject, setLoadingProject] = useState(false);
+  const [supportState, setSupportState] = useState({ open: false, error: null, topic: null });
+  const openSupport = useCallback((opts = {}) => {
+    setSupportState({
+      open: true,
+      error: opts.error || null,
+      topic: opts.topic || null,
+    });
+  }, []);
   const saveRef = useRef(null);
   const idRef = useRef(0);
   const nextId = () => `s${idRef.current++}`;
@@ -1104,6 +1113,14 @@ export default function Home() {
           onRename={onRenameProject}
           onDelete={onDeleteProject}
           storage={storage}
+          onOpenSupport={() => openSupport()}
+        />
+        <SupportModal
+          isOpen={supportState.open}
+          onClose={() => setSupportState({ open: false, error: null, topic: null })}
+          initialError={supportState.error}
+          initialTopic={supportState.topic}
+          projectMeta={null}
         />
       </ErrorBoundary>
     );
@@ -1130,6 +1147,17 @@ export default function Home() {
           <img className="brand__logo" src="/logo.svg" alt="MK AutoEditor" width="28" height="28" />
           <span className="brand__name"><span className="brand__pre">MK</span> AutoEditor</span>
           <span className="brand__tag">image + video · voiceover sync</span>
+        </div>
+        <div className="nav__actions">
+          <button
+            type="button"
+            className="nav__support-btn"
+            onClick={() => openSupport()}
+            title="Get Help & Developer Support"
+          >
+            <span className="nav__support-icon">💬</span>
+            <span className="nav__support-text">Support &amp; Help</span>
+          </button>
         </div>
       </header>
 
@@ -1240,7 +1268,18 @@ export default function Home() {
           {imageCount > 0 && warnings.length > 0 && (
             <div className="notes">{warnings.map((w, i) => <div className="note" key={i}>{w}</div>)}</div>
           )}
-          {error && <div className="note note--bad">{error}</div>}
+          {error && (
+            <div className="note note--bad note--with-action">
+              <span>{error}</span>
+              <button
+                type="button"
+                className="note__support-btn"
+                onClick={() => openSupport({ error, topic: "general_help" })}
+              >
+                💬 Get Support
+              </button>
+            </div>
+          )}
 
           <div className="build-row">
             <button
@@ -1318,9 +1357,22 @@ export default function Home() {
           watermarkFadeIn={watermarkFadeIn} setWatermarkFadeIn={setWatermarkFadeIn}
           watermarkTextColor={watermarkTextColor} setWatermarkTextColor={setWatermarkTextColor}
           watermarkTextBg={watermarkTextBg} setWatermarkTextBg={setWatermarkTextBg}
+          onOpenSupport={openSupport}
         />
       )}
       </div>
+
+      <SupportModal
+        isOpen={supportState.open}
+        onClose={() => setSupportState({ open: false, error: null, topic: null })}
+        initialError={supportState.error}
+        initialTopic={supportState.topic}
+        projectMeta={{
+          name: currentProject ? (currentProject.name || "Untitled") : "AutoEditor",
+          clipCount: clips ? clips.length : 0,
+          duration: audioDuration ? `${Math.round(audioDuration)}s` : null,
+        }}
+      />
     </main>
     </ErrorBoundary>
   );

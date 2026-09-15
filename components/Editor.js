@@ -70,6 +70,7 @@ export default function Editor({
   watermarkFadeIn = false, setWatermarkFadeIn,
   watermarkTextColor = "#ffffff", setWatermarkTextColor,
   watermarkTextBg = true, setWatermarkTextBg,
+  onOpenSupport,
 }) {
   const canvasRef = useRef(null);
   const viewerFrameRef = useRef(null);
@@ -1368,7 +1369,18 @@ export default function Editor({
           ↓ Download Final Video (MP4)
         </a>
       )}
-      {error && <div className="note note--bad">{error}</div>}
+      {error && (
+        <div className="note note--bad note--with-action">
+          <span>{error}</span>
+          <button
+            type="button"
+            className="note__support-btn"
+            onClick={() => onOpenSupport && onOpenSupport({ error, topic: "render_failed" })}
+          >
+            💬 Get Support
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -1902,7 +1914,18 @@ export default function Editor({
                   markers like <code>(0:03)</code>, NoteGPT ranges, or <code>[0:03]</code> lines all
                   work. Captions sync to the audio and burn into the MP4.
                 </p>
-                {captionError && <div className="note note--bad">{captionError}</div>}
+                {captionError && (
+                  <div className="note note--bad note--with-action">
+                    <span>{captionError}</span>
+                    <button
+                      type="button"
+                      className="note__support-btn"
+                      onClick={() => onOpenSupport && onOpenSupport({ error: captionError, topic: "captions_issue" })}
+                    >
+                      💬 Get Support
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -2207,7 +2230,18 @@ export default function Editor({
                     </button>
                   )}
                 </div>
-                {captionError && <div className="note note--bad">{captionError}</div>}
+                {captionError && (
+                  <div className="note note--bad note--with-action">
+                    <span>{captionError}</span>
+                    <button
+                      type="button"
+                      className="note__support-btn"
+                      onClick={() => onOpenSupport && onOpenSupport({ error: captionError, topic: "captions_issue" })}
+                    >
+                      💬 Get Support
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -2897,12 +2931,17 @@ export default function Editor({
           { id: "watermark", label: "Logo", icon: "🏷️" },
           { id: "inspector", label: "Inspector", icon: "🎛️" },
           { id: "export", label: "Export", icon: "🚀" },
+          { id: "support", label: "Support", icon: "💬" },
         ].map((t) => (
           <button
             key={t.id}
             type="button"
             className={`studio-mobile-nav-btn ${mobileTab === t.id ? "is-active" : ""}`}
             onClick={() => {
+              if (t.id === "support") {
+                if (onOpenSupport) onOpenSupport();
+                return;
+              }
               setMobileTab(t.id);
               if (t.id === "inspector") {
                 setInspectorTab("clip");
