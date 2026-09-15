@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![MK AutoEditor V2 Banner](docs/screenshots/v2_hero_preview.jpg)
+![MK AutoEditor V2 Studio](docs/screenshots/timeline_studio.png)
 
 **Next-Gen Web Video Assembler for AI Storytellers, Creators & Faceless Content**
 
@@ -24,10 +24,19 @@ Simply drop your **Voiceover Audio** and **Timestamped Images / Video Clips** (e
 
 ---
 
-## ✨ Studio Showcase
+## ✨ Live Studio Showcase
 
-### 1. Pro Studio & Automated Multi-Track Timeline
-> Full multi-track timeline supporting 100+ media clips with instant timecode snapping, waveform preview, transition markers, and live particle FX.
+### 1. Automated Media Import & Pre-Build Tray
+> Intelligently detects and separates **Photos & Videos** with real-time counters (`Total Media`, `🖼️ Photos`, `🎬 Videos`) and ordering by audio timecodes.
+
+<div align="center">
+  <img src="docs/screenshots/live_import_tray.png" alt="AutoEditor Import Tray" width="95%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);" />
+</div>
+
+---
+
+### 2. Pro Timeline Studio & Media Hub
+> Full multi-track timeline supporting 100+ media clips with instant timecode snapping, waveform preview, transition markers, and dedicated Media Library filters (`All`, `🖼️ Photos`, `🎬 Videos`).
 
 <div align="center">
   <img src="docs/screenshots/timeline_studio.png" alt="AutoEditor Timeline Studio" width="95%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);" />
@@ -35,11 +44,11 @@ Simply drop your **Voiceover Audio** and **Timestamped Images / Video Clips** (e
 
 ---
 
-### 2. Cinematic Visual Effects & Motion Studio
-> 12+ real-time canvas visual effects including Golden Dust, Film Grain, Camera Shake, RGB Glitch, Bloom, and Zoom Pulse with adjustable intensity.
+### 3. Cinematic Visual Effects & Transitions Studio
+> 12+ real-time canvas visual effects (Golden Dust, Film Grain, Camera Shake, RGB Glitch) plus dynamic Transitions with procedural Whoosh sound effects.
 
 <div align="center">
-  <img src="docs/screenshots/effects_suite.png" alt="Visual Effects Suite" width="95%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);" />
+  <img src="docs/screenshots/effects_suite.png" alt="Visual Effects & Transitions" width="95%" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);" />
 </div>
 
 ---
