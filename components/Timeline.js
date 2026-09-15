@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { transitionOf } from "../lib/transitions";
 
 function label(t) {
@@ -31,7 +31,7 @@ function Waveform({ peaks }) {
 // The signature element: a scrubbable track with a fixed label gutter. Clips,
 // waveform, playhead and click-to-seek all share the track's coordinate space.
 export default function Timeline({
-  clips, imageEls, duration, time, peaks, activeName, badClips,
+  clips, imageEls, mediaStats, duration, time, peaks, activeName, badClips,
   transitionsByName, motionByName, selectedName, onSelect,
   onSeek, onScrubStart, onScrubEnd, onOpen, onAdd, onResizeBoundary,
   trimEnd, onTrimChange, videoInfoByName = {}, fitByName = {},
@@ -177,12 +177,28 @@ export default function Timeline({
   const trimPos = trimEnd > 0 && trimEnd < duration ? trimEnd : duration;
   const trimmed = trimPos < duration;
 
+  const computedStats = useMemo(() => {
+    if (mediaStats && typeof mediaStats.total === "number") return mediaStats;
+    let images = 0;
+    let videos = 0;
+    for (const c of clips) {
+      if (c.gap) continue;
+      const el = imageEls && imageEls[c.name];
+      const isVid = (videoInfoByName && !!videoInfoByName[c.name]) || (el && el.isVideo);
+      if (isVid) videos++;
+      else images++;
+    }
+    return { total: images + videos, images, videos };
+  }, [mediaStats, clips, imageEls, videoInfoByName]);
+
   return (
     <div className="tl" style={rowMin ? { "--tl-min": rowMin } : undefined}>
       <div className="tl__toolbar">
         <div className="tl__toolbar-info">
           <span className="tl__toolbar-title">TIMELINE</span>
-          <span className="tl__toolbar-meta">{clips.length} clips · {duration ? duration.toFixed(1) : 0}s</span>
+          <span className="tl__toolbar-meta">
+            {computedStats.total} clips ({computedStats.images}🖼️ {computedStats.videos}🎬) · {duration ? duration.toFixed(1) : 0}s
+          </span>
         </div>
         <div className="tl__zoom-bar">
           <span className="tl__zoom-label">Zoom</span>

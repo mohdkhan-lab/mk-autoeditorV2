@@ -38,6 +38,7 @@ function clock(sec) {
 
 export default function Editor({
   clips, imageEls, audioUrl, duration, peaks, dims,
+  mediaStats,
   onAddImages, onAudioFile,
   aspect, setAspect, fps, setFps,
   renderQuality = "full", setRenderQuality, renderDims,
@@ -78,6 +79,7 @@ export default function Editor({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isEditingCaptions, setIsEditingCaptions] = useState(false);
   const [isTheater, setIsTheater] = useState(false);
+  const [mediaFilter, setMediaFilter] = useState("all"); // "all" | "photos" | "videos"
 
   const toggleFullscreen = useCallback(() => {
     const el = viewerFrameRef.current;
@@ -845,9 +847,32 @@ export default function Editor({
     () => new Set(clips.filter((c) => c.duration <= 0.0001).map((c) => c.name)),
     [clips]
   );
+  const computedMediaStats = useMemo(() => {
+    if (mediaStats && typeof mediaStats.total === "number") return mediaStats;
+    let images = 0;
+    let videos = 0;
+    if (clips) {
+      for (const c of clips) {
+        if (c.gap) continue;
+        const el = imageEls && imageEls[c.name];
+        const isVid = (videoInfoByName && !!videoInfoByName[c.name]) || (el && el.isVideo);
+        if (isVid) videos++;
+        else images++;
+      }
+    }
+    const total = images + videos;
+    return {
+      total,
+      images,
+      videos,
+      summary: `${total} media (${images} photos, ${videos} videos)`,
+      badge: `${total} media (${images}🖼️ ${videos}🎬)`,
+    };
+  }, [mediaStats, clips, imageEls, videoInfoByName]);
+
   const imageClips = useMemo(() => clips.filter((c) => !c.gap), [clips]);
-  const imageCount = imageClips.length;
-  const gapCount = clips.length - imageCount;
+  const imageCount = computedMediaStats.total || imageClips.length;
+  const gapCount = clips.length - imageClips.length;
   const activeIndex = active && !active.gap ? imageClips.indexOf(active) + 1 : 0;
 
   const selectClip = useCallback((name) => {
@@ -918,101 +943,168 @@ export default function Editor({
     setSidebarEffect("none");
   }, [applyEffectAll]);
 
-  const renderMediaHubPanel = () => (
-    <div className="panel media-hub-panel">
-      <div className="effects__titlerow" style={{ marginBottom: 10 }}>
-        <span className="panel__h">Media Library</span>
-        <span className="effects__target-pill">{imageCount} clips</span>
-      </div>
+  const renderMediaHubPanel = () => {
+    const filteredClips = clips.filter((c) => {
+      if (mediaFilter === "all") return true;
+      const el = imageEls && imageEls[c.name];
+      const isVid = (videoInfoByName && !!videoInfoByName[c.name]) || (el && el.isVideo);
+      if (mediaFilter === "videos") return isVid;
+      if (mediaFilter === "photos") return !isVid && !c.gap;
+      return true;
+    });
 
-      <div
-        className={`media-dropzone ${isDragOver ? "is-dragover" : ""}`}
-        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-        onDragLeave={() => setIsDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setIsDragOver(false);
-          if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length && onAddImages) {
-            onAddImages(e.dataTransfer.files);
-          }
-        }}
-        onClick={() => addMediaInputRef.current && addMediaInputRef.current.click()}
-      >
-        <div className="media-dropzone__icon">➕</div>
-        <div className="media-dropzone__title">Import Photos &amp; Videos</div>
-        <div className="media-dropzone__hint">Click or drag &amp; drop files here to add to project</div>
-      </div>
-
-      <div className="mini-h" style={{ marginTop: 14 }}>Project Timeline Clips ({clips.length})</div>
-      <div className="media-clips-list">
-        {clips.map((c, idx) => {
-          const el = imageEls && imageEls[c.name];
-          const isVid = videoInfoByName && !!videoInfoByName[c.name];
-          const isSelected = selectedCut === c.name || (active && active.name === c.name);
-          return (
-            <div
-              key={c.name}
-              className={`media-clip-row ${isSelected ? "is-selected" : ""} ${c.gap ? "is-gap" : ""}`}
-              onClick={() => {
-                selectClip(c.name);
-                seek(c.start);
-                setInspectorTab("clip");
-              }}
+    return (
+      <div className="panel media-hub-panel">
+        <div className="effects__titlerow" style={{ marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
+          <span className="panel__h">Media Library</span>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            <span className="effects__target-pill" title="Total media in timeline">
+              Total: {computedMediaStats.total}
+            </span>
+            <span
+              className="effects__target-pill"
+              style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", border: "1px solid rgba(56, 189, 248, 0.3)" }}
+              title="Photos count"
             >
-              <div className="media-clip-row__thumb">
-                {c.gap ? (
-                  <span className="media-clip-row__gap-icon">⚠️</span>
-                ) : isVid && videoInfoByName[c.name] ? (
-                  <video src={videoInfoByName[c.name].url} muted playsInline preload="metadata" />
-                ) : el ? (
-                  <img src={el.url} alt="" />
-                ) : (
-                  <span className="media-clip-row__gap-icon">🖼️</span>
-                )}
-                <span className="media-clip-row__idx">#{idx + 1}</span>
+              🖼️ {computedMediaStats.images}
+            </span>
+            <span
+              className="effects__target-pill"
+              style={{ background: "rgba(168, 85, 247, 0.15)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.3)" }}
+              title="Videos count"
+            >
+              🎬 {computedMediaStats.videos}
+            </span>
+          </div>
+        </div>
+
+        <div
+          className={`media-dropzone ${isDragOver ? "is-dragover" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragOver(false);
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length && onAddImages) {
+              onAddImages(e.dataTransfer.files);
+            }
+          }}
+          onClick={() => addMediaInputRef.current && addMediaInputRef.current.click()}
+        >
+          <div className="media-dropzone__icon">➕</div>
+          <div className="media-dropzone__title">Import Photos &amp; Videos</div>
+          <div className="media-dropzone__hint">Click or drag &amp; drop files here to add to project</div>
+        </div>
+
+        {/* Media filter tabs */}
+        <div className="media-filter-bar" style={{ marginTop: 12, marginBottom: 8, display: "flex", gap: 6 }}>
+          <button
+            type="button"
+            className={`media-filter-btn ${mediaFilter === "all" ? "is-active" : ""}`}
+            onClick={() => setMediaFilter("all")}
+          >
+            All ({computedMediaStats.total})
+          </button>
+          <button
+            type="button"
+            className={`media-filter-btn ${mediaFilter === "photos" ? "is-active" : ""}`}
+            onClick={() => setMediaFilter("photos")}
+          >
+            🖼️ Photos ({computedMediaStats.images})
+          </button>
+          <button
+            type="button"
+            className={`media-filter-btn ${mediaFilter === "videos" ? "is-active" : ""}`}
+            onClick={() => setMediaFilter("videos")}
+          >
+            🎬 Videos ({computedMediaStats.videos})
+          </button>
+        </div>
+
+        <div className="mini-h" style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>Timeline Clips ({filteredClips.length})</span>
+          <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>
+            {computedMediaStats.images} photos · {computedMediaStats.videos} videos
+          </span>
+        </div>
+        <div className="media-clips-list">
+          {filteredClips.map((c) => {
+            const idx = clips.indexOf(c);
+            const el = imageEls && imageEls[c.name];
+            const isVid = (videoInfoByName && !!videoInfoByName[c.name]) || (el && el.isVideo);
+            const isSelected = selectedCut === c.name || (active && active.name === c.name);
+            return (
+              <div
+                key={c.name}
+                className={`media-clip-row ${isSelected ? "is-selected" : ""} ${c.gap ? "is-gap" : ""}`}
+                onClick={() => {
+                  selectClip(c.name);
+                  seek(c.start);
+                  setInspectorTab("clip");
+                }}
+              >
+                <div className="media-clip-row__thumb">
+                  {c.gap ? (
+                    <span className="media-clip-row__gap-icon">⚠️</span>
+                  ) : isVid && videoInfoByName[c.name] ? (
+                    <video src={videoInfoByName[c.name].url} muted playsInline preload="metadata" />
+                  ) : el ? (
+                    <img src={el.url} alt="" />
+                  ) : (
+                    <span className="media-clip-row__gap-icon">🖼️</span>
+                  )}
+                  <span className="media-clip-row__idx">#{idx + 1}</span>
+                  {isVid && (
+                    <span style={{ position: "absolute", bottom: 2, right: 2, fontSize: "0.6rem", background: "rgba(0,0,0,0.75)", color: "#fff", borderRadius: 3, padding: "1px 3px", lineHeight: 1 }}>
+                      🎬
+                    </span>
+                  )}
+                </div>
+                <div className="media-clip-row__info">
+                  <span className="media-clip-row__name">
+                    {c.gap ? "Empty Gap" : (el && el.fileName) || c.name}
+                  </span>
+                  <span className="media-clip-row__meta">
+                    {tc(c.start)} · {c.duration.toFixed(1)}s {isVid ? "· 🎬 Video" : "· 🖼️ Photo"}
+                  </span>
+                </div>
+                <div className="media-clip-row__actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="media-clip-row__btn"
+                    title="Replace clip"
+                    onClick={() => {
+                      openInspect(c.name);
+                      if (replaceInputRef.current) replaceInputRef.current.click();
+                    }}
+                  >
+                    🔄
+                  </button>
+                  <button
+                    type="button"
+                    className="media-clip-row__btn media-clip-row__btn--del"
+                    title="Remove from timeline"
+                    onClick={() => removeImage && removeImage(c.name)}
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
-              <div className="media-clip-row__info">
-                <span className="media-clip-row__name">
-                  {c.gap ? "Empty Gap" : (el && el.fileName) || c.name}
-                </span>
-                <span className="media-clip-row__meta">
-                  {tc(c.start)} · {c.duration.toFixed(1)}s {isVid ? "· 🎬 Video" : ""}
-                </span>
-              </div>
-              <div className="media-clip-row__actions" onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  className="media-clip-row__btn"
-                  title="Replace clip"
-                  onClick={() => {
-                    openInspect(c.name);
-                    if (replaceInputRef.current) replaceInputRef.current.click();
-                  }}
-                >
-                  🔄
-                </button>
-                <button
-                  type="button"
-                  className="media-clip-row__btn media-clip-row__btn--del"
-                  title="Remove from timeline"
-                  onClick={() => removeImage && removeImage(c.name)}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderClipInspectorPanel = () => (
     <div className="panel clip-inspector-panel">
       <div className="effects__titlerow" style={{ marginBottom: 10 }}>
         <span className="panel__h">Properties</span>
         <span className="effects__target-pill">
-          {targetClip && !targetClip.gap ? `Clip ${selectedImageNum || activeIndex}/${imageCount}` : "No Clip"}
+          {targetClip && !targetClip.gap
+            ? `${(videoInfoByName && !!videoInfoByName[targetClip.name]) || (imageEls && imageEls[targetClip.name] && imageEls[targetClip.name].isVideo) ? "🎬 Video" : "🖼️ Photo"} ${selectedImageNum || activeIndex} of ${computedMediaStats.total}`
+            : "No Clip"}
         </span>
       </div>
 
@@ -1317,7 +1409,10 @@ export default function Editor({
 
       <dl className="specs" style={{ marginTop: 10 }}>
         <div className="spec"><dt>Resolution</dt><dd>{(renderDims || dims).width}×{(renderDims || dims).height}{renderQuality === "720p" ? " · faster" : ""}</dd></div>
-        <div className="spec"><dt>Images / Cuts</dt><dd>{imageCount} clips</dd></div>
+        <div className="spec">
+          <dt>Total Media</dt>
+          <dd>{computedMediaStats.total} clips ({computedMediaStats.images} photos, {computedMediaStats.videos} videos)</dd>
+        </div>
         <div className="spec spec--length">
           <dt>Runtime</dt>
           <dd>
@@ -2883,7 +2978,9 @@ export default function Editor({
               </button>
               {active && (
                 <span className="hud-badge" title={active.name}>
-                  {active.gap ? "Empty" : `Clip ${activeIndex}/${imageCount}`}
+                  {active.gap
+                    ? "Empty"
+                    : `Clip ${activeIndex}/${computedMediaStats.total} (${(videoInfoByName && !!videoInfoByName[active.name]) || (imageEls && imageEls[active.name] && imageEls[active.name].isVideo) ? "🎬 Video" : "🖼️ Photo"})`}
                 </span>
               )}
             </div>
@@ -2979,6 +3076,7 @@ export default function Editor({
         <Timeline
           clips={clips}
           imageEls={imageEls}
+          mediaStats={computedMediaStats}
           duration={duration}
           time={time}
           peaks={peaks}
@@ -3071,7 +3169,7 @@ export default function Editor({
             <div className="modal__card" onClick={(e) => e.stopPropagation()}>
               <div className="modal__head">
                 <span className="modal__title">
-                  {num ? `${kind} ${num} of ${imageCount}` : kind}
+                  {num ? `${kind} ${num} of ${computedMediaStats.total} (${computedMediaStats.images} photos, ${computedMediaStats.videos} videos)` : kind}
                   {insClip && <span className="modal__at"> · {tc(insClip.start)}</span>}
                 </span>
                 <button className="modal__x" onClick={closeInspect} aria-label="Close">✕</button>

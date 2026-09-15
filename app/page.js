@@ -597,14 +597,43 @@ export default function Home() {
     for (const s of slots) if (!s.empty && s.img) m[s.id] = s.img;
     return m;
   }, [slots]);
-  const imageCount = useMemo(() => slots.filter((s) => !s.empty && s.img).length, [slots]);
+  const mediaStats = useMemo(() => {
+    let images = 0;
+    let videos = 0;
+    for (const s of slots) {
+      if (!s.empty && s.img) {
+        if (s.img.isVideo || (s.file && isVideoFile(s.file))) {
+          videos++;
+        } else {
+          images++;
+        }
+      }
+    }
+    const total = images + videos;
+    return {
+      total,
+      images,
+      videos,
+      summary: total === 0
+        ? "No media imported"
+        : `${total} media (${images} photos, ${videos} videos)`,
+      badge: `${total} media (${images}🖼️ ${videos}🎬)`,
+    };
+  }, [slots]);
+  const imageCount = mediaStats.total;
 
   // Staged thumbnails for the pre-build import tray, ordered by timestamp
   // (files with no parseable timestamp sort last and are flagged).
   const tray = useMemo(
     () => slots
       .filter((s) => !s.empty && s.img)
-      .map((s) => ({ id: s.id, url: s.img.url, name: s.img.fileName || (s.file && s.file.name) || "", seconds: s.seconds }))
+      .map((s) => ({
+        id: s.id,
+        url: s.img.url,
+        name: s.img.fileName || (s.file && s.file.name) || "",
+        seconds: s.seconds,
+        isVideo: Boolean(s.img.isVideo || (s.file && isVideoFile(s.file))),
+      }))
       .sort((a, b) => (a.seconds == null ? Infinity : a.seconds) - (b.seconds == null ? Infinity : b.seconds)),
     [slots]
   );
@@ -1181,8 +1210,8 @@ export default function Home() {
           />
           <Dropzone
             compact multiple accept="image/*,video/*" onFiles={addImages} icon="▦"
-            title="Add media" filled={imageCount > 0}
-            filledLabel={imageCount ? `${imageCount} clips` : ""}
+            title="Add media" filled={mediaStats.total > 0}
+            filledLabel={mediaStats.total ? `${mediaStats.total} media (${mediaStats.images}🖼️ ${mediaStats.videos}🎬)` : ""}
           />
         </div>
       </div>
@@ -1249,16 +1278,29 @@ export default function Home() {
 
           {tray.length > 0 && (
             <div className="tray">
-              <div className="tray__head">
-                <span className="tray__count">{tray.length} image{tray.length > 1 ? "s" : ""} imported</span>
+              <div className="tray__head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span className="tray__count">{mediaStats.total} Media Items Imported</span>
+                  <span className="tray__pill" style={{ background: "rgba(59, 130, 246, 0.18)", color: "#60a5fa", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+                    🖼️ {mediaStats.images} Photo{mediaStats.images !== 1 ? "s" : ""}
+                  </span>
+                  <span className="tray__pill" style={{ background: "rgba(168, 85, 247, 0.18)", color: "#c084fc", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+                    🎬 {mediaStats.videos} Video{mediaStats.videos !== 1 ? "s" : ""}
+                  </span>
+                </div>
                 <span className="tray__sub">ordered by timestamp — hover to remove</span>
               </div>
               <div className="tray__grid">
                 {tray.map((t) => (
-                  <div key={t.id} className={`thumb${t.seconds == null ? " thumb--notime" : ""}`} title={t.name}>
+                  <div key={t.id} className={`thumb${t.seconds == null ? " thumb--notime" : ""}`} title={`${t.name} (${t.isVideo ? "Video" : "Photo"})`}>
                     <img src={t.url} alt="" />
+                    {t.isVideo && (
+                      <span style={{ position: "absolute", top: 4, left: 4, background: "rgba(147, 51, 234, 0.88)", color: "#fff", padding: "1px 5px", borderRadius: 4, fontSize: 9, fontWeight: 750 }}>
+                        🎬 Video
+                      </span>
+                    )}
                     <span className="thumb__time">{t.seconds != null ? fmtTime(t.seconds) : "no time"}</span>
-                    <button className="thumb__x" title="Remove this image" onClick={() => discardImage(t.id)}>✕</button>
+                    <button className="thumb__x" title="Remove this clip" onClick={() => discardImage(t.id)}>✕</button>
                   </div>
                 ))}
               </div>
@@ -1294,13 +1336,13 @@ export default function Home() {
                 ? "Import your storyboard images to begin."
                 : !audioFile
                   ? "Add a voiceover to build the timeline."
-                  : `${tray.length} image${tray.length > 1 ? "s" : ""} · ready to build`}
+                  : `${mediaStats.total} media (${mediaStats.images} photos, ${mediaStats.videos} videos) · ready to build`}
             </span>
           </div>
         </section>
       ) : (
         <Editor
-          clips={clips} imageEls={imageEls} audioUrl={audioUrl}
+          clips={clips} imageEls={imageEls} audioUrl={audioUrl} mediaStats={mediaStats}
           onAddImages={addImages} onAudioFile={onAudioFile}
           duration={audioDuration} peaks={peaks} dims={dims}
           aspect={aspect} setAspect={setAspect} fps={fps} setFps={setFps}
