@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import {
   SUPPORT_CONFIG,
   buildWhatsAppUrl,
+  buildGmailUrl,
   buildEmailUrl,
   buildDiagnosticReport,
 } from "../lib/supportConfig";
@@ -21,6 +22,7 @@ export default function SupportModal({
   const [details, setDetails] = useState("");
   const [attachDiagnostics, setAttachDiagnostics] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [emailCopied, setEmailCopied] = useState(false);
   
   // Ticket submission state
   const [submitting, setSubmitting] = useState(false);
@@ -66,6 +68,14 @@ export default function SupportModal({
     }
   };
 
+  const handleCopyEmail = () => {
+    try {
+      navigator.clipboard.writeText(SUPPORT_CONFIG.email);
+      setEmailCopied(true);
+      setTimeout(() => setEmailCopied(false), 2500);
+    } catch (_) {}
+  };
+
   const handleWhatsAppClick = () => {
     const url = buildWhatsAppUrl({
       error: currentError,
@@ -77,7 +87,18 @@ export default function SupportModal({
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  const handleEmailClick = () => {
+  const handleGmailClick = () => {
+    const url = buildGmailUrl({
+      error: currentError,
+      topic,
+      details,
+      userName: userName || userContact,
+      projectMeta,
+    });
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleDefaultMailClick = () => {
     const url = buildEmailUrl({
       error: currentError,
       topic,
@@ -85,7 +106,7 @@ export default function SupportModal({
       userName: userName || userContact,
       projectMeta,
     });
-    window.open(url, "_blank");
+    window.location.href = url;
   };
 
   const handleSubmitTicket = async (e) => {
@@ -190,39 +211,62 @@ export default function SupportModal({
               {/* WhatsApp Option */}
               <div className="support-channel-card support-channel-card--wa">
                 <div className="support-channel-card__top">
-                  <span className="support-channel-card__badge">Fastest · 1-Click</span>
+                  <span className="support-channel-card__badge">Official Channel</span>
                   <span className="support-channel-card__icon">🟢</span>
                 </div>
-                <h4 className="support-channel-card__title">Chat on WhatsApp</h4>
+                <h4 className="support-channel-card__title">WhatsApp Channel</h4>
                 <p className="support-channel-card__desc">
-                  Open WhatsApp with your issue details &amp; browser diagnostics automatically filled.
+                  Join our official WhatsApp channel for updates, support guides &amp; developer contact.
                 </p>
                 <button
                   type="button"
                   className="support-action-btn support-action-btn--wa"
                   onClick={handleWhatsAppClick}
                 >
-                  <span>💬 Open WhatsApp Chat →</span>
+                  <span>📢 Join WhatsApp Channel →</span>
                 </button>
               </div>
 
               {/* Email Option */}
               <div className="support-channel-card support-channel-card--email">
                 <div className="support-channel-card__top">
-                  <span className="support-channel-card__badge">Detailed Report</span>
+                  <span className="support-channel-card__badge">Direct Email</span>
                   <span className="support-channel-card__icon">✉️</span>
                 </div>
-                <h4 className="support-channel-card__title">Send Direct Email</h4>
+                <h4 className="support-channel-card__title">Developer Email</h4>
                 <p className="support-channel-card__desc">
-                  Contact via email ({SUPPORT_CONFIG.email}) with logs and screenshots.
+                  Send details directly to <strong>{SUPPORT_CONFIG.email}</strong>.
                 </p>
-                <button
-                  type="button"
-                  className="support-action-btn support-action-btn--email"
-                  onClick={handleEmailClick}
-                >
-                  <span>✉️ Compose Email →</span>
-                </button>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <button
+                    type="button"
+                    className="support-action-btn support-action-btn--email"
+                    onClick={handleGmailClick}
+                    title="Open Gmail Web Compose directly in your browser"
+                  >
+                    <span>📧 Compose in Gmail (Web) →</span>
+                  </button>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      type="button"
+                      className="support-action-btn support-action-btn--sub"
+                      style={{ fontSize: 11, padding: "6px 8px", flex: 1 }}
+                      onClick={handleDefaultMailClick}
+                      title="Open default mail client (Outlook / Apple Mail)"
+                    >
+                      <span>✉️ Default Mail App</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="support-action-btn support-action-btn--sub"
+                      style={{ fontSize: 11, padding: "6px 8px", flex: 1 }}
+                      onClick={handleCopyEmail}
+                      title="Copy email address to clipboard"
+                    >
+                      <span>{emailCopied ? "✓ Copied!" : "📋 Copy Email"}</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
