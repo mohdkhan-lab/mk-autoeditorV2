@@ -130,7 +130,7 @@ AutoEditor accepts files named by their start time:
 ## 🤝 Support & Community
 
 - **Telegram Support**: [@Mohdashraff18](https://t.me/Mohdashraff18)
-- **WhatsApp Updates**: [Join MK Channel](https://whatsapp.com/channel/0029VbDteqXIN9ivtJxB4Q3E)
+- **WhatsApp Support**: [+91 8198966902](https://wa.me/918198966902)
 - **Built by**: Mohd Khan
 
 ---

@@ -228,19 +228,20 @@ export default function SupportModal({
               {/* WhatsApp Option */}
               <div className="support-channel-card support-channel-card--wa">
                 <div className="support-channel-card__top">
-                  <span className="support-channel-card__badge">Official Channel</span>
-                  <span className="support-channel-card__icon">🟢</span>
+                  <span className="support-channel-card__badge">Direct WhatsApp</span>
+                  <span className="support-channel-card__icon">💬</span>
                 </div>
-                <h4 className="support-channel-card__title">WhatsApp Channel</h4>
+                <h4 className="support-channel-card__title">WhatsApp Support</h4>
                 <p className="support-channel-card__desc">
-                  Join our official WhatsApp channel for updates, support guides &amp; developer contact.
+                  Chat directly with developer on WhatsApp (<strong>{SUPPORT_CONFIG.whatsappDisplayNumber || "+91 8198966902"}</strong>) for quick troubleshooting and support.
                 </p>
                 <button
                   type="button"
                   className="support-action-btn support-action-btn--wa"
                   onClick={handleWhatsAppClick}
+                  title={`Chat on WhatsApp (${SUPPORT_CONFIG.whatsappDisplayNumber || "+91 8198966902"})`}
                 >
-                  <span>📢 Join WhatsApp Channel →</span>
+                  <span>💬 Chat on WhatsApp (+91 8198966902) →</span>
                 </button>
               </div>
 
@@ -311,9 +312,9 @@ export default function SupportModal({
                     type="button"
                     className="support-action-btn support-action-btn--wa"
                     onClick={handleWhatsAppClick}
-                    title="Connect on official WhatsApp Channel"
+                    title={`Chat on WhatsApp (${SUPPORT_CONFIG.whatsappDisplayNumber || "+91 8198966902"})`}
                   >
-                    <span>📢 WhatsApp Channel →</span>
+                    <span>💬 WhatsApp (+91 8198966902) →</span>
                   </button>
                   <button
                     type="button"
@@ -421,9 +422,9 @@ export default function SupportModal({
                       className="support-action-btn support-action-btn--wa"
                       style={{ flex: 1, fontSize: 11, padding: "8px 6px" }}
                       onClick={handleWhatsAppClick}
-                      title="Directly open WhatsApp Channel"
+                      title={`Directly chat on WhatsApp (${SUPPORT_CONFIG.whatsappDisplayNumber || "+91 8198966902"})`}
                     >
-                      <span>📢 WhatsApp Channel</span>
+                      <span>💬 WhatsApp (+91 8198966902)</span>
                     </button>
                   </div>
                 </div>
@@ -454,7 +455,7 @@ export default function SupportModal({
                 className="support-link-btn"
                 onClick={handleWhatsAppClick}
               >
-                Chat directly with {SUPPORT_CONFIG.ownerName} on WhatsApp →
+                Chat directly with {SUPPORT_CONFIG.ownerName} on WhatsApp ({SUPPORT_CONFIG.whatsappDisplayNumber || "+91 8198966902"}) →
               </button>
             </div>
           </div>
