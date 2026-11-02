@@ -1,7 +1,7 @@
 export const metadata = {
   title: "MK AutoEditor — image + video · voiceover sync",
   description: "Sync timestamp-named images and video clips to a voiceover and export an MP4, on your device.",
-  icons: { icon: "/logo.svg" },
+  icons: { icon: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/logo.svg` },
 };
 
 export const viewport = {

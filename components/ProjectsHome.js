@@ -61,7 +61,7 @@ export default function ProjectsHome({
       <header className="ph__topbar">
         <div className="ph__bar">
           <div className="ph__brand" onClick={() => setActiveTab("studio")} style={{ cursor: "pointer" }}>
-            <img className="ph__logo" src="/logo.svg" alt="MK AutoEditor" width="28" height="28" />
+            <img className="ph__logo" src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/logo.svg`} alt="MK AutoEditor" width="28" height="28" />
             <span className="ph__name"><span className="ph__pre">MK</span> AutoEditor</span>
           </div>
 
