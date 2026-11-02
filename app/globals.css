@@ -4772,3 +4772,42 @@ button:focus-visible, .dz:focus-visible, a:focus-visible {
   }
 }
 
+/* Hub Problem & Support Form */
+.hub-support-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+.hub-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hub-form-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.hub-form-input, .hub-form-select, .hub-form-textarea {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13.5px;
+  outline: none;
+  transition: all 0.15s ease;
+}
+.hub-form-input:focus, .hub-form-select:focus, .hub-form-textarea:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+.hub-form-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
