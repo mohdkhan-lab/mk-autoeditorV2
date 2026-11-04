@@ -3,6 +3,7 @@ import { useState } from "react";
 import { showConfirm, showPrompt } from "./Dialog";
 import { SUPPORT_CONFIG, buildWhatsAppUrl, buildTelegramUrl, buildEmailUrl } from "../lib/supportConfig";
 import TutorialSection from "./TutorialSection";
+import RealVideoShowcase from "./RealVideoShowcase";
 
 function timeAgo(ts) {
   if (!ts) return "";
@@ -98,6 +99,13 @@ export default function ProjectsHome({
             </button>
             <button
               type="button"
+              className={`ph__nav-tab ${activeTab === "showcase" ? "is-active" : ""}`}
+              onClick={() => setActiveTab("showcase")}
+            >
+              <span>🔥</span> Real Video Samples
+            </button>
+            <button
+              type="button"
               className={`ph__nav-tab ${activeTab === "tutorial" ? "is-active" : ""}`}
               onClick={() => setActiveTab("tutorial")}
             >
@@ -178,6 +186,13 @@ export default function ProjectsHome({
                   style={{ fontSize: 14.5, padding: "10px 22px" }}
                 >
                   <span>🚀 Create New Video Project (Free)</span>
+                </button>
+                <button
+                  type="button"
+                  className="hub-btn hub-btn--gold"
+                  onClick={() => setActiveTab("showcase")}
+                >
+                  <span>🔥 Watch Real YouTube Samples</span>
                 </button>
                 <button
                   type="button"
@@ -278,11 +293,22 @@ export default function ProjectsHome({
                 Name your images or video files with their starting timestamp (e.g. <code style={{ color: "#fbbf24", background: "rgba(245, 158, 11, 0.15)", padding: "2px 6px", borderRadius: 4 }}>0-12_scene.jpg</code> for 12 seconds, or <code style={{ color: "#fbbf24", background: "rgba(245, 158, 11, 0.15)", padding: "2px 6px", borderRadius: 4 }}>#1-05.mp4</code> for 1 min 05 sec). When you drop them with your voiceover audio, MK AutoEditor automatically places them at the exact millisecond!
               </p>
             </div>
+            {/* REAL VIDEOS SHOWCASE SECTION (PRODUCED FOR @MKFINANCE18) */}
+            <RealVideoShowcase onStartProject={onNew} />
           </section>
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 2: INTERACTIVE VIDEO TUTORIAL & MASTERCLASS WALKTHROUGH               */}
+        {/* TAB 2: DEDICATED REAL VIDEO SHOWCASE & CASE STUDIES                       */}
+        {/* ========================================================================= */}
+        {activeTab === "showcase" && (
+          <section>
+            <RealVideoShowcase onStartProject={onNew} />
+          </section>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 3: INTERACTIVE VIDEO TUTORIAL & MASTERCLASS WALKTHROUGH               */}
         {/* ========================================================================= */}
         {activeTab === "tutorial" && (
           <section>

@@ -420,3 +420,4 @@ export default function TutorialSection({ onStartProject }) {
     </div>
   );
 }
+
