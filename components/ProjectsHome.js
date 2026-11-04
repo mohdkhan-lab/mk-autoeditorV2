@@ -4,6 +4,7 @@ import { showConfirm, showPrompt } from "./Dialog";
 import { SUPPORT_CONFIG, buildWhatsAppUrl, buildTelegramUrl, buildEmailUrl } from "../lib/supportConfig";
 import TutorialSection from "./TutorialSection";
 import RealVideoShowcase from "./RealVideoShowcase";
+import BentoGridSection from "./BentoGridSection";
 
 function timeAgo(ts) {
   if (!ts) return "";
@@ -135,26 +136,25 @@ export default function ProjectsHome({
           </nav>
 
           <div className="ph__actions">
-            <a
-              href="https://mk-studio-lab.vercel.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hub-btn hub-btn--secondary"
-              style={{ padding: "6px 12px", fontSize: "12px", gap: 6 }}
-              title="Visit main MK Studio Hub"
-            >
-              <span>← MK Studio Hub ↗</span>
-            </a>
-
             <button
               type="button"
               className="hub-btn hub-btn--primary"
-              style={{ padding: "7px 14px", fontSize: "12.5px" }}
+              style={{ padding: "8px 18px", fontSize: "13px", fontWeight: 700 }}
               onClick={onNew}
               title="Create a new video project immediately"
             >
               <span>＋ New Project</span>
             </button>
+            <a
+              href={directWhatsAppUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hub-btn hub-btn--wa"
+              style={{ padding: "8px 14px", fontSize: "12.5px" }}
+              title="Direct WhatsApp Help with Mohd Khan"
+            >
+              <span>💬 WhatsApp: 8198966902</span>
+            </a>
           </div>
         </div>
       </header>
@@ -293,6 +293,9 @@ export default function ProjectsHome({
                 Name your images or video files with their starting timestamp (e.g. <code style={{ color: "#fbbf24", background: "rgba(245, 158, 11, 0.15)", padding: "2px 6px", borderRadius: 4 }}>0-12_scene.jpg</code> for 12 seconds, or <code style={{ color: "#fbbf24", background: "rgba(245, 158, 11, 0.15)", padding: "2px 6px", borderRadius: 4 }}>#1-05.mp4</code> for 1 min 05 sec). When you drop them with your voiceover audio, MK AutoEditor automatically places them at the exact millisecond!
               </p>
             </div>
+            {/* BENTO ARCHITECTURE SECTION */}
+            <BentoGridSection onStartProject={onNew} />
+
             {/* REAL VIDEOS SHOWCASE SECTION (PRODUCED FOR @MKFINANCE18) */}
             <RealVideoShowcase onStartProject={onNew} />
           </section>
@@ -317,92 +320,11 @@ export default function ProjectsHome({
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 3: FEATURES SHOWCASE                                                  */}
+        {/* TAB 4: ENGINE FEATURES (BENTO ARCHITECTURE)                              */}
         {/* ========================================================================= */}
         {activeTab === "features" && (
           <section>
-            <div className="ph__head">
-              <h2 className="ph__title" style={{ fontSize: 26 }}>AutoEditor Engine Features</h2>
-              <p className="ph__sub">State-of-the-art client-side video processing built for creator speed.</p>
-            </div>
-
-            <div className="hub-features-grid">
-              <div className="hub-feature-card">
-                <div className="hub-feature-card__top">
-                  <span className="hub-feature-card__icon">⚡</span>
-                  <span className="hub-feature-card__badge">Hardware GPU</span>
-                </div>
-                <h3 className="hub-feature-card__title">5x WebCodecs Turbo Engine</h3>
-                <p className="hub-feature-card__desc">
-                  Render 1080p MP4 directly inside your browser using GPU hardware acceleration. No server queues, zero cloud upload wait, and completely free.
-                </p>
-              </div>
-
-              <div className="hub-feature-card">
-                <div className="hub-feature-card__top">
-                  <span className="hub-feature-card__icon">🎙️</span>
-                  <span className="hub-feature-card__badge">Auto Alignment</span>
-                </div>
-                <h3 className="hub-feature-card__title">Audio &amp; Voiceover Sync</h3>
-                <p className="hub-feature-card__desc">
-                  Interactive multi-channel waveform peak detector. Smart automatic timestamp positioning matches your audio narrations down to the exact frame.
-                </p>
-              </div>
-
-              <div className="hub-feature-card">
-                <div className="hub-feature-card__top">
-                  <span className="hub-feature-card__icon">💬</span>
-                  <span className="hub-feature-card__badge">TikTok / Reels</span>
-                </div>
-                <h3 className="hub-feature-card__title">Dynamic Burn-in Subtitles</h3>
-                <p className="hub-feature-card__desc">
-                  Auto subtitle timing with .srt &amp; .vtt support. Customize high-impact viral caption fonts, outlines, gold accent highlights, and vertical safe-zones.
-                </p>
-              </div>
-
-              <div className="hub-feature-card">
-                <div className="hub-feature-card__top">
-                  <span className="hub-feature-card__icon">🎬</span>
-                  <span className="hub-feature-card__badge">Cinematic FX</span>
-                </div>
-                <h3 className="hub-feature-card__title">6+ Transitions &amp; Sound FX</h3>
-                <p className="hub-feature-card__desc">
-                  Seamless crossfades, zoom-ins, directional wipes, and glitch effects paired with automatic whoosh sound effects for high viewer retention.
-                </p>
-              </div>
-
-              <div className="hub-feature-card">
-                <div className="hub-feature-card__top">
-                  <span className="hub-feature-card__icon">🔒</span>
-                  <span className="hub-feature-card__badge">100% Private</span>
-                </div>
-                <h3 className="hub-feature-card__title">Local-First Storage</h3>
-                <p className="hub-feature-card__desc">
-                  Your videos, photos, and voice recordings never leave your device. All assets are safely stored in browser IndexedDB with zero cloud exposure.
-                </p>
-              </div>
-
-              <div className="hub-feature-card">
-                <div className="hub-feature-card__top">
-                  <span className="hub-feature-card__icon">📱</span>
-                  <span className="hub-feature-card__badge">Cross Platform</span>
-                </div>
-                <h3 className="hub-feature-card__title">PC &amp; Android Ready</h3>
-                <p className="hub-feature-card__desc">
-                  Optimized for desktop Chrome, Edge, and Brave with keyboard shortcuts, plus mobile touchscreen timeline support via Android Termux.
-                </p>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 36, textAlign: "center" }}>
-              <button
-                type="button"
-                className="hub-btn hub-btn--primary"
-                onClick={onNew}
-              >
-                <span>🚀 Launch In Studio Workspace Now →</span>
-              </button>
-            </div>
+            <BentoGridSection onStartProject={onNew} />
           </section>
         )}
 
